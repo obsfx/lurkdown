@@ -1,11 +1,13 @@
 import TokenType from './TokenType'
 
-export default class Token  {
+export default class Token {
     type: TokenType;
-    value: string;
+    typestr: string;
+    literal: string;
 
-    constructor(type: TokenType, value: string) {
+    constructor(type: TokenType, typestr: string, literal: string) {
         this.type = type;
-        this.value = value;
+        this.typestr = typestr;
+        this.literal = literal;
     }
 }
