@@ -1,0 +1,5 @@
+/.vim
+/node_modules
+/build
+
+*.session

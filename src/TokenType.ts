@@ -1,0 +1,19 @@
+enum TOKENS {
+    STRING, REFERENCE, TITLE,
+
+    HEADER,
+
+    ITALIC, BOLD, STRIKETHROUGH,
+
+    LINK,
+
+    BANG, SEMI_COLON, QUOTE, BACK_TICK,
+
+    DASH, PLUS, PIPE,
+
+    NEW_LINE, WHITE_SPACE,
+
+    LIST_NUMBER, 
+}
+
+export default TOKENS;
