@@ -29,10 +29,10 @@ export default class Tokenizer {
         return char >= '0' && char <= '9';
     }
 
-    private getUntil(terminator: string): string {
+    private getUntil(terminators: string[]): string {
         let start: number = this.index - 1;
 
-        while (this.peek() != terminator && this.peek() != '\n' && !this.isEOF(this.peek())) {
+        while (terminators.indexOf(this.peek()) < 0 && this.peek() != '\n' && !this.isEOF(this.peek())) {
             this.consume();
         }
 
@@ -55,29 +55,11 @@ export default class Tokenizer {
             case ':': this.addToken(TokenType.SEMICOLON, 'SEMICOLON', ':'); break;
             case '!': this.addToken(TokenType.BANG, 'BANG', '!'); break;
             case '|': this.addToken(TokenType.PIPE, 'PIPE', '|'); break;
-
-            case '<': {
-                this.addToken(TokenType.LT, 'LT', '<');
-                let str: string = this.getUntil('>');
-                this.addToken(TokenType.STR, 'STR', str);
-            } break;
-
+            case '<': this.addToken(TokenType.LT, 'LT', '<'); break;
             case '>': this.addToken(TokenType.GT, 'GT', '>'); break;
-
-            case '[': {
-                this.addToken(TokenType.LEFT_SQ_PAR, 'LEFT_SQ_PAR', '[');
-                let str: string = this.getUntil(']');
-                this.addToken(TokenType.STR, 'STR', str);
-            } break;
-
+            case '[': this.addToken(TokenType.LEFT_SQ_PAR, 'LEFT_SQ_PAR', '['); break;
             case ']': this.addToken(TokenType.RIGHT_SQ_PAR, 'RIGHT_SQ_PAR', ']'); break;
-
-            case '(': {
-                this.addToken(TokenType.LEFT_PAR, 'LEFT_PAR', '(');
-                let str: string = this.getUntil(')');
-                this.addToken(TokenType.STR, 'STR', str);
-            } break;
-
+            case '(': this.addToken(TokenType.LEFT_PAR, 'LEFT_PAR', '('); break;
             case ')': this.addToken(TokenType.RIGHT_PAR, 'RIGHT_PAR', ')'); break;
 
             case '#': {
@@ -107,10 +89,6 @@ export default class Tokenizer {
                 } else {
                     this.addToken(TokenType.ASTERISK, 'ASTERISK', '*');
                 }
-
-
-                let str: string = this.getUntil('*');
-                this.addToken(TokenType.STR, 'STR', str);
             } break;
 
             case '_': {
@@ -120,18 +98,12 @@ export default class Tokenizer {
                 } else {
                     this.addToken(TokenType.UNDERSCORE, 'UNDERSCORE', '_');
                 }
-
-                let str: string = this.getUntil('_');
-                this.addToken(TokenType.STR, 'STR', str);
             } break;
 
             case '~': {
                 if (this.peek() == '~') {
                     this.consume();
                     this.addToken(TokenType.DOUBLE_TILDE, 'DOUBLE_TILDE', '~~');
-
-                    let str: string = this.getUntil('~');
-                    this.addToken(TokenType.STR, 'STR', str);
                 }
             } break;
 
@@ -141,9 +113,6 @@ export default class Tokenizer {
                 } else {
                     this.addToken(TokenType.BACKTICK, 'BACKTICK', '`');
                 }
-
-                let str: string = this.getUntil('`');
-                this.addToken(TokenType.STR, 'STR', str);
             } break;
 
             default: {
@@ -151,7 +120,7 @@ export default class Tokenizer {
                     this.consume();
                     this.addToken(TokenType.LIST_NUMBER, 'LIST_NUMBER', `${char}.`);
                 } else {
-                    let str: string = this.getUntil(' ');
+                    let str: string = this.getUntil([' ', '*', '_', ']', ')', '>', '~']);
                     this.addToken(TokenType.STR, 'STR', str);
                 }
             } break;
