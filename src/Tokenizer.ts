@@ -109,6 +109,8 @@ export default class Tokenizer {
 
             case '`': {
                 if (this.peek() == '`' && this.peek(1) == '`') {
+                    this.consume();
+                    this.consume();
                     this.addToken(TokenType.TRIPLE_BACKTICK, 'TRIPLE_BACKTICK', '```');
                 } else {
                     this.addToken(TokenType.BACKTICK, 'BACKTICK', '`');
