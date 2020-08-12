@@ -113,7 +113,6 @@ export default class Parser {
     private checkUntil(untiltoken: TokenType, checktoken: TokenType): boolean {
         let index: number = this.index;
 
-        debugger;
         while (this.tokens[index].type != untiltoken && index < this.tokens.length - 1) {
             if (this.tokens[index].type != checktoken) {
                 return false;
@@ -135,6 +134,12 @@ export default class Parser {
 
         while (this.elements[this.elements.length - 1].html != '\n' && this.elements.length - 1 > 0) {
             this.elements.pop();
+        }
+    }
+
+    private forwardUntil(untiltoken: TokenType): void {
+        while (!this.look(untiltoken) && this.index < this.tokens.length - 1) {
+            this.consume();
         }
     }
 
@@ -161,6 +166,16 @@ export default class Parser {
 
                     /**
                      * consume remaning newline after we bacwarded it
+                     */
+                    this.consume();
+
+                    /**
+                     * just skip until the next line
+                     */
+                    this.forwardUntil(TokenType.NEWLINE);
+
+                    /**
+                     * again consume the reaming newline but after we forwarded it
                      */
                     this.consume();
                 }

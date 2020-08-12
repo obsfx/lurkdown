@@ -13,7 +13,6 @@ let str: string = `
 
 Alt-H1 **asterisks and _underscores_ and _test_**
 =
-
 Alt-H2 **asterisks and _underscores_ and _test_**
 -
 
