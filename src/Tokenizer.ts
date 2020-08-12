@@ -48,7 +48,6 @@ export default class Tokenizer {
 
         switch (char) {
             case ' ': this.addToken(TokenType.WHITESPACE, 'WHITESPACE',' '); break;
-            case '\n': this.addToken(TokenType.NEWLINE, 'NEWLINE', '\n'); break;
             case '-': this.addToken(TokenType.MINUS, 'MINUS', '-'); break;
             case '=': this.addToken(TokenType.EQ, 'EQ', '='); break;
             case '+': this.addToken(TokenType.PLUS, 'PLUS', '+'); break;
@@ -61,6 +60,7 @@ export default class Tokenizer {
             case ']': this.addToken(TokenType.RIGHT_SQ_PAR, 'RIGHT_SQ_PAR', ']'); break;
             case '(': this.addToken(TokenType.LEFT_PAR, 'LEFT_PAR', '('); break;
             case ')': this.addToken(TokenType.RIGHT_PAR, 'RIGHT_PAR', ')'); break;
+            case '\n': this.addToken(TokenType.NEWLINE, 'NEWLINE', '\n'); break;
 
             case '#': {
                 let start: number = this.index - 1;
@@ -70,7 +70,7 @@ export default class Tokenizer {
                 }
 
                 let headerType: number = this.index - start;
-                let literal: string = `h${headerType}`;
+                let literal: string = headerType.toString();
 
                 switch (headerType) {
                     case 1: this.addToken(TokenType.H1, 'H1', literal); break;
@@ -85,9 +85,9 @@ export default class Tokenizer {
             case '*': {
                 if (this.peek() == '*') {
                     this.consume();
-                    this.addToken(TokenType.DOUBLE_ASTERISK, 'DOUBLE_ASTERISK', '**');
+                    this.addToken(TokenType.DOUBLE_ASTERISKS, 'DOUBLE_ASTERISKS', '**');
                 } else {
-                    this.addToken(TokenType.ASTERISK, 'ASTERISK', '*');
+                    this.addToken(TokenType.ASTERISKS, 'ASTERISKS', '*');
                 }
             } break;
 
