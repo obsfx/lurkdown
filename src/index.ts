@@ -5,9 +5,16 @@ import Element from './Element'
 
 let str: string = `
 Markdown | Test
-| --------- | --- |
+| --------- | --- | ---
 *Still* | \`renders\` | **nicely**
 1 |
+asfsafsaf | asfasfasfsaf
+
+
+| sfasf
+--- 
+| asfsfsf 
+asfsfsf  
 `;
 
 let tokenizer: Tokenizer = new Tokenizer(str);
@@ -16,12 +23,14 @@ tokenizer.tokenize();
 let tokens: Token[] = tokenizer.tokens;
 let parser: Parser = new Parser(tokens);
 
+/*
 tokenizer.tokens.forEach((token: Token) => {
     process.stdout.write(token.typestr + ' ');
     if (token.typestr == 'NEWLINE') {
         process.stdout.write('\n');
     }
 })
+*/
 
 console.log("---------");
 

@@ -17,10 +17,13 @@ export default class Parser {
         this.lineStartIndices = [ 0 ];
         this.tokens = tokens;
         this.elements = [];
-        this.subencapsulations = [ TokenType.DOUBLE_ASTERISKS, 
+        this.subencapsulations = [ 
+            TokenType.DOUBLE_ASTERISKS, 
             TokenType.DOUBLE_UNDERSCORE,
             TokenType.ASTERISKS,
-            TokenType.UNDERSCORE ];
+            TokenType.UNDERSCORE,
+            TokenType.BACKTICK
+        ];
 
         this.htmlKeywords = new Map();
 
@@ -152,101 +155,59 @@ export default class Parser {
         }
 
         /**
-         * preventing false positive because of adjacent newlines
+         * prevent false positive because of adjacent newlines
          */
         return index != this.index ? true : false;
     }
 
     private backwardUntil(untiltoken: TokenType): void {
-        while (this.tokens[this.index - 1].type != untiltoken && this.index > 0) {
+        while (this.index > 0) {
+            if (this.tokens[this.index - 1].type == untiltoken) {
+                break;
+            }
+
             this.index--;
         }
 
-        while (this.elements[this.elements.length - 1].html != '\n' && this.elements.length - 1 > 0) {
+        while (this.elements.length - 1 > 0) {
+            if (this.elements[this.elements.length - 1].html == '\n') {
+                break;
+            }
+
             this.elements.pop();
         }
     }
 
     private forwardUntil(untiltoken: TokenType): void {
-        while (!this.look(untiltoken) && this.index < this.tokens.length - 1) {
+        while (this.index < this.tokens.length - 1) {
+            if (this.look(untiltoken)) {
+                break;
+            }
+
             this.consume();
         }
     }
-/*
-    private countUntil(lineStartIndex: number, searchedtoken: TokenType, untiltoken: TokenType): number {
-        let tokencount: number = 0;
 
-        while (lineStartIndex < this.tokens.length) {
-            if (this.tokens[lineStartIndex].type == untiltoken) {
-                break;
-            }
-
-            if (this.tokens[lineStartIndex].type == searchedtoken) {
-                tokencount++;
-            }
-
-            lineStartIndex++;
-        }
-
-        return tokencount;
-    }
-*/
-/*
-    private stringifyLine(lineStartIndex: number): string {
-        let str: string = '';
-
-        while (lineStartIndex < this.tokens.length) {
-            if (this.tokens[lineStartIndex].type == TokenType.NEWLINE) {
-                break;
-            }
-
-            str += this.tokens[lineStartIndex].literal;
-
-            lineStartIndex++;
-        }
-
-        return str;
-    }
-*/
-    private getTokensOfLine(lineStartIndex: number): Token[] {
+    private getTokensOfLine(lineIndex: number): Token[] {
+        let lineStartIndex: number = this.lineStartIndices[lineIndex];
         let tokens: Token[] = [];
 
-        while (lineStartIndex < this.tokens.length) {
-            if (this.tokens[lineStartIndex].type == TokenType.NEWLINE) {
-                break;
+        if (lineIndex != undefined) {
+            while (lineStartIndex < this.tokens.length) {
+                if (this.tokens[lineStartIndex].type == TokenType.NEWLINE) {
+                    break;
+                }
+
+                tokens.push(this.tokens[lineStartIndex]);
+
+                lineStartIndex++;
             }
-
-            tokens.push(this.tokens[lineStartIndex]);
-
-            lineStartIndex++;
         }
 
         return tokens;
     }
-/*
-    private isThereTable(): boolean {
-        if (this.currentLine == this.lineStartIndices.length - 1) {
-            return false;
-        }
 
-        let currentLineIndex: number = this.lineStartIndices[this.currentLine];
-        let pipeCount: number = this.countUntil(currentLineIndex, TokenType.PIPE, TokenType.NEWLINE);
-
-        let nextLineIndex = this.lineStartIndices[this.currentLine + 1];
-        let dashCount: number = this.countUntil(nextLineIndex, TokenType.LONG_MINUS, TokenType.NEWLINE);
-
-        return Math.min(pipeCount, dashCount) > 1 ? true : false;
-    }
-*/
-
-    /**
-     * check is there a pipe between two str and then if there is unneccessary outher tokens 
-     * delete them and return modified token array.
-     */
-    private checkPipeBetweenStrAndFormat(lineStartIndex: number): [ boolean, Token[] ] {
-        let lineTokens = this.getTokensOfLine(lineStartIndex)
-        .filter((token: Token) => token.type != TokenType.WHITESPACE);
-
+    private checkPipeBetweenStr(lineTokens: Token[]): boolean {
         let isThereAPipeBetweenStr: boolean = false;
 
         for (let i: number = 1; i < lineTokens.length - 1; i++) {
@@ -257,17 +218,216 @@ export default class Parser {
             }
         }
 
-        if (isThereAPipeBetweenStr) {
-            if (lineTokens[0].type == TokenType.PIPE) {
-                lineTokens.shift();
-            }
+        return isThereAPipeBetweenStr;
+    }
 
-            if (lineTokens[lineTokens.length - 1].type == TokenType.PIPE) {
-                lineTokens.pop();
+    private deleteOuterPipes(lineTokens: Token[]): Token[] {
+        if (lineTokens[0].type == TokenType.PIPE) {
+            lineTokens.shift();
+        }
+
+        if (lineTokens[lineTokens.length - 1].type == TokenType.PIPE) {
+            lineTokens.pop();
+        }
+
+        return lineTokens;
+    }
+
+    private checkPipePattern(condition: Function, pipeAdjacent: TokenType, matchThreshold: number, tokens: Token[]): boolean {
+        let matchedPatterns: number = 0;
+
+        for (let i: number = 0; i < tokens.length; i++) {
+            if (condition(tokens[i], pipeAdjacent)) {
+                if (i < tokens.length - 1) {
+                    if (tokens[i + 1].type == TokenType.PIPE) {
+                        matchedPatterns++;
+                    }
+                } else if (tokens.length > 1) {
+                    matchedPatterns++;
+                }
             }
         }
 
-        return [ isThereAPipeBetweenStr, lineTokens ];
+        return matchedPatterns < matchThreshold ? false : true;
+    }
+
+    private constructTableIfThereIs(): boolean {
+        if (this.currentLine == this.lineStartIndices.length - 1) {
+            return false;
+        }
+
+        let currentLine: Token[] = this.getTokensOfLine(this.currentLine)
+        .filter((token: Token) => token.type != TokenType.WHITESPACE);
+
+        /**
+         * check is there any pipe that separates at least 2 non pipe thing
+         */
+        let isThereAPipeBetweenStr: boolean = this.checkPipeBetweenStr(currentLine);
+
+        if (isThereAPipeBetweenStr) {
+            /**
+             * delete outer pipes we dont need them
+             */
+            currentLine = this.deleteOuterPipes(currentLine);
+
+            /**
+             * get the pipe count
+             */
+            let pipeCount: number = currentLine
+            .filter((token: Token) => token.type == TokenType.PIPE).length;
+
+            /**
+             * we have to find innerpipecount + 1 dash in the next line to construct
+             * a table
+             */
+            let seekingDashCount: number = pipeCount + 1;
+
+            let nextLine: Token[] = this.getTokensOfLine(this.currentLine + 1)
+            .filter((token: Token) => token.type != TokenType.WHITESPACE);
+
+            let isThereDashPattern: boolean = this.checkPipePattern(
+                (token: Token, pipeAdjacent: TokenType): boolean => {
+                    return token.type == pipeAdjacent
+                }, TokenType.LONG_MINUS, seekingDashCount, nextLine);
+
+            /**
+             * if we cant find the pattern to construct the table
+             * just return false
+             */
+            if (!isThereDashPattern) {
+                return false;
+            }
+
+            let html: string = '<table>\n';
+
+            /**
+             * get back to the beginning of the line and 
+             * stringify all the things.
+             */
+            this.backwardUntil(TokenType.NEWLINE);
+
+            let head: string[] = this.getUntil(TokenType.NEWLINE).split('|');
+
+            /**
+             * consume remaining newline
+             */
+            this.consume();
+            this.currentLine++;
+
+            html += '<tr>\n';
+            for (let i: number = 0; i < seekingDashCount; i++) {
+                html += `<th>${head[i] ? head[i].trim() : ''}</th>\n`;
+            }
+            html += '</tr>\n';
+
+            /**
+             * forward header dashes
+             */
+            this.forwardUntil(TokenType.NEWLINE);
+            this.consume();
+            this.currentLine++;
+
+            /**
+             * after the header part we will look for
+             * forward rows that contains the content
+             */
+            while (this.currentLine < this.lineStartIndices.length) {
+                /**
+                 * nearly same thing like the header part but we will
+                 * look for non pipe tokens that has a pipe at the right side of them
+                 */
+                let forwardLine: Token[] = this.getTokensOfLine(this.currentLine)
+                .filter((token: Token) => token.type != TokenType.WHITESPACE);
+
+                let isThereRowPattern: boolean = this.checkPipePattern(
+                    (token: Token, exceptThis: TokenType) => {
+                        return token.type != exceptThis
+                    }, TokenType.PIPE, 1, forwardLine);
+
+                if (!isThereRowPattern) {
+                    break;
+                }
+
+                let row: string[] = this.getUntil(TokenType.NEWLINE).split('|');
+
+                /**
+                 * consume the remaining newline
+                 */
+                this.consume();
+                this.currentLine++;
+
+                html += '<tr>\n';
+                for (let i: number = 0; i < seekingDashCount; i++) {
+                    html += `<td>${row[i] ? row[i].trim() : ''}</td>\n`
+                }
+                html += '</tr>\n';
+            }
+
+            html += '</table>';
+            this.addElement(html);
+        } else {
+            let nextLineDashCount: number = this.getTokensOfLine(this.currentLine + 1)
+            .filter((token: Token) => token.type == TokenType.LONG_MINUS)
+            .length;
+
+            if ((nextLineDashCount < 1) || 
+                currentLine[0].type != TokenType.PIPE && 
+                currentLine[currentLine.length - 1].type != TokenType.PIPE) {
+                return false;
+            }
+
+            /**
+             * get back to the beginning of the line and 
+             * stringify all the things.
+             */
+            this.backwardUntil(TokenType.NEWLINE);
+
+            let head: string = this.getUntil(TokenType.NEWLINE)
+            .split('|')
+            .join('');
+
+            /**
+             * consume remaining newline
+             */
+            this.consume();
+            this.currentLine++;
+
+            let html: string = `<table>\n<tr><th>${head.trim()}</th></tr>\n`;
+
+            /**
+             * forward header dashes
+             */
+            this.forwardUntil(TokenType.NEWLINE);
+            this.consume();
+            this.currentLine++;
+
+            while (this.currentLine < this.lineStartIndices.length) {
+                let forwardLinePipeCount: number = this.getTokensOfLine(this.currentLine)
+                .filter((token: Token) => token.type == TokenType.PIPE)
+                .length;
+
+                if (forwardLinePipeCount == 0) {
+                    break;
+                }
+
+                let row: string = this.getUntil(TokenType.NEWLINE)
+                .split('|')
+                .join('');
+
+                html += `<tr><td>${row.trim()}</td></tr>\n`;
+
+                /**
+                 * consume the remaining newline
+                 */
+                this.consume();
+                this.currentLine++;
+            }
+
+            html += '</table>';
+            this.addElement(html);
+        }
+
+        return true;
     }
 
     /* ********************** */
@@ -292,7 +452,7 @@ export default class Parser {
                     this.addElement(`<${tag} class='ld-${tag}-bordered'>${this.getUntil(TokenType.NEWLINE)}</${tag}>`)
 
                     /**
-                     * consume remaning newline after we bacwarded it
+                     * consume remaining newline after we bacwarded it
                      */
                     this.consume();
 
@@ -306,19 +466,6 @@ export default class Parser {
                      */
                     this.consume();
                 }
-
-                let [ 
-                    isThereAPipeBetweenStr, 
-                    formattedLineTokens 
-                ]: [ boolean, Token[] ] = this.checkPipeBetweenStrAndFormat(this.lineStartIndices[this.currentLine]);
-
-                if (isThereAPipeBetweenStr) {
-
-                }
-
-
-                console.log(formattedLineTokens, isThereAPipeBetweenStr);
-                //console.log(lineStringArr.filter((literal: string) => literal == '|'));
 
                 this.currentLine++;
                 this.addElement('\n'); 
@@ -350,7 +497,9 @@ export default class Parser {
             break;
 
             case TokenType.PIPE: {
-
+                if (!this.constructTableIfThereIs()) {
+                    this.addElement(token.literal);
+                }
             } break;
 
             default: this.addElement(token.literal); break;
