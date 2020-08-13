@@ -48,7 +48,6 @@ export default class Tokenizer {
 
         switch (char) {
             case ' ': this.addToken(TokenType.WHITESPACE, 'WHITESPACE',' '); break;
-            case '-': this.addToken(TokenType.MINUS, 'MINUS', '-'); break;
             case '=': this.addToken(TokenType.EQ, 'EQ', '='); break;
             case '+': this.addToken(TokenType.PLUS, 'PLUS', '+'); break;
             case ':': this.addToken(TokenType.SEMICOLON, 'SEMICOLON', ':'); break;
@@ -91,6 +90,20 @@ export default class Tokenizer {
                 }
             } break;
 
+            case '-': {
+                if (this.peek() == '-' && this.peek(1) == '-') {
+                    let minusLiteral: string = '--';
+
+                    while (this.peek() == '-' && !this.isEOF(this.peek())) {
+                        minusLiteral += this.consume();
+                    }
+
+                    this.addToken(TokenType.LONG_MINUS, 'LONG_MINUS', minusLiteral);
+                } else {
+                    this.addToken(TokenType.MINUS, 'MINUS', '-');
+                }
+            } break;
+
             case '_': {
                 if (this.peek() == '_') {
                     this.consume();
@@ -122,7 +135,7 @@ export default class Tokenizer {
                     this.consume();
                     this.addToken(TokenType.LIST_NUMBER, 'LIST_NUMBER', `${char}.`);
                 } else {
-                    let str: string = this.getUntil([' ', '*', '_', ']', ')', '>', '~']);
+                    let str: string = this.getUntil([' ', '*', '_', ']', ')', '>', '~', '`', '|']);
                     this.addToken(TokenType.STR, 'STR', str);
                 }
             } break;

@@ -4,6 +4,8 @@ import Element from './Element'
 
 export default class Parser {
     index: number;
+    currentLine: number;
+    lineStartIndices: number[];
     tokens: Token[];
     elements: Element[];
     subencapsulations: TokenType[];
@@ -11,6 +13,8 @@ export default class Parser {
 
     constructor(tokens: Token[]) {
         this.index = 0;
+        this.currentLine = 0;
+        this.lineStartIndices = [ 0 ];
         this.tokens = tokens;
         this.elements = [];
         this.subencapsulations = [ TokenType.DOUBLE_ASTERISKS, 
@@ -20,6 +24,11 @@ export default class Parser {
 
         this.htmlKeywords = new Map();
 
+        this.detectLineStartIndices();
+        this.mapKeywords();
+    }
+
+    private mapKeywords(): void {
         this.htmlKeywords.set(TokenType.H1, 'h1');
         this.htmlKeywords.set(TokenType.H2, 'h2');
         this.htmlKeywords.set(TokenType.H3, 'h3');
@@ -32,8 +41,21 @@ export default class Parser {
 
         this.htmlKeywords.set(TokenType.DOUBLE_ASTERISKS, 'strong');
         this.htmlKeywords.set(TokenType.DOUBLE_UNDERSCORE, 'strong');
+
+        this.htmlKeywords.set(TokenType.DOUBLE_TILDE, 'del');
+
         this.htmlKeywords.set(TokenType.ASTERISKS, 'i');
         this.htmlKeywords.set(TokenType.UNDERSCORE, 'i');
+
+        this.htmlKeywords.set(TokenType.BACKTICK, 'code');
+    }
+
+    private detectLineStartIndices(): void {
+        for (let i: number = 1; i < this.tokens.length; i++) {
+            if (this.tokens[i - 1].type == TokenType.NEWLINE) {
+                this.lineStartIndices.push(i);
+            }
+        }
     }
 
     private consume(): Token {
@@ -47,7 +69,11 @@ export default class Parser {
     private seekFor(tokentype: TokenType): boolean {
         let index: number = this.index;
 
-        while (this.tokens[index].type != tokentype) {
+        while (this.index < this.tokens.length) {
+            if (this.tokens[index].type == tokentype) {
+                break;
+            }
+
             if (this.tokens[index].type == TokenType.NEWLINE || this.index >= this.tokens.length) {
                 return false;
             }
@@ -113,7 +139,11 @@ export default class Parser {
     private checkUntil(untiltoken: TokenType, checktoken: TokenType): boolean {
         let index: number = this.index;
 
-        while (this.tokens[index].type != untiltoken && index < this.tokens.length - 1) {
+        while (index < this.tokens.length) {
+            if (this.tokens[index].type == untiltoken) {
+                break;
+            }
+
             if (this.tokens[index].type != checktoken) {
                 return false;
             }
@@ -141,6 +171,103 @@ export default class Parser {
         while (!this.look(untiltoken) && this.index < this.tokens.length - 1) {
             this.consume();
         }
+    }
+/*
+    private countUntil(lineStartIndex: number, searchedtoken: TokenType, untiltoken: TokenType): number {
+        let tokencount: number = 0;
+
+        while (lineStartIndex < this.tokens.length) {
+            if (this.tokens[lineStartIndex].type == untiltoken) {
+                break;
+            }
+
+            if (this.tokens[lineStartIndex].type == searchedtoken) {
+                tokencount++;
+            }
+
+            lineStartIndex++;
+        }
+
+        return tokencount;
+    }
+*/
+/*
+    private stringifyLine(lineStartIndex: number): string {
+        let str: string = '';
+
+        while (lineStartIndex < this.tokens.length) {
+            if (this.tokens[lineStartIndex].type == TokenType.NEWLINE) {
+                break;
+            }
+
+            str += this.tokens[lineStartIndex].literal;
+
+            lineStartIndex++;
+        }
+
+        return str;
+    }
+*/
+    private getTokensOfLine(lineStartIndex: number): Token[] {
+        let tokens: Token[] = [];
+
+        while (lineStartIndex < this.tokens.length) {
+            if (this.tokens[lineStartIndex].type == TokenType.NEWLINE) {
+                break;
+            }
+
+            tokens.push(this.tokens[lineStartIndex]);
+
+            lineStartIndex++;
+        }
+
+        return tokens;
+    }
+/*
+    private isThereTable(): boolean {
+        if (this.currentLine == this.lineStartIndices.length - 1) {
+            return false;
+        }
+
+        let currentLineIndex: number = this.lineStartIndices[this.currentLine];
+        let pipeCount: number = this.countUntil(currentLineIndex, TokenType.PIPE, TokenType.NEWLINE);
+
+        let nextLineIndex = this.lineStartIndices[this.currentLine + 1];
+        let dashCount: number = this.countUntil(nextLineIndex, TokenType.LONG_MINUS, TokenType.NEWLINE);
+
+        return Math.min(pipeCount, dashCount) > 1 ? true : false;
+    }
+*/
+
+    /**
+     * check is there a pipe between two str and then if there is unneccessary outher tokens 
+     * delete them and return modified token array.
+     */
+    private checkPipeBetweenStrAndFormat(lineStartIndex: number): [ boolean, Token[] ] {
+        let lineTokens = this.getTokensOfLine(lineStartIndex)
+        .filter((token: Token) => token.type != TokenType.WHITESPACE);
+
+        let isThereAPipeBetweenStr: boolean = false;
+
+        for (let i: number = 1; i < lineTokens.length - 1; i++) {
+            if (lineTokens[i - 1].type != TokenType.PIPE && 
+                lineTokens[i].type == TokenType.PIPE &&
+                lineTokens[i + 1].type != TokenType.PIPE) {
+                isThereAPipeBetweenStr = true;
+            }
+        }
+
+        if (isThereAPipeBetweenStr) {
+            if (lineTokens[0].type == TokenType.PIPE) {
+                lineTokens.shift();
+            }
+
+            if (lineTokens[lineTokens.length - 1].type == TokenType.PIPE) {
+                lineTokens.pop();
+            }
+        }
+
+        return [ isThereAPipeBetweenStr, lineTokens ];
     }
 
     /* ********************** */
@@ -180,6 +307,20 @@ export default class Parser {
                     this.consume();
                 }
 
+                let [ 
+                    isThereAPipeBetweenStr, 
+                    formattedLineTokens 
+                ]: [ boolean, Token[] ] = this.checkPipeBetweenStrAndFormat(this.lineStartIndices[this.currentLine]);
+
+                if (isThereAPipeBetweenStr) {
+
+                }
+
+
+                console.log(formattedLineTokens, isThereAPipeBetweenStr);
+                //console.log(lineStringArr.filter((literal: string) => literal == '|'));
+
+                this.currentLine++;
                 this.addElement('\n'); 
             } break;
 
@@ -199,7 +340,18 @@ export default class Parser {
                 }
             } break;
 
-            case TokenType.DOUBLE_ASTERISKS: this.addElement(this.encapsulate(token)); break;
+            case TokenType.DOUBLE_ASTERISKS: 
+            case TokenType.DOUBLE_UNDERSCORE: 
+            case TokenType.DOUBLE_TILDE:
+            case TokenType.ASTERISKS:
+            case TokenType.UNDERSCORE:
+            case TokenType.BACKTICK:
+                this.addElement(this.encapsulate(token));
+            break;
+
+            case TokenType.PIPE: {
+
+            } break;
 
             default: this.addElement(token.literal); break;
         }
