@@ -1,42 +1,7 @@
-import Tokenizer from './Tokenizer'
-import Token from './Token'
-import Parser from './Parser'
-import Element from './Element'
+import parse from './Parser'
 
 let str: string = `
-Markdown | Test
-| --------- | --- | ---
-*Still* | \`renders\` | **nicely**
-1 |
-asfsafsaf | asfasfasfsaf
-
-
-| sfasf
---- 
-| asfsfsf 
-asfsfsf  
+deneme yazısı denem deneme deneme yazısı [I'm an inline-style link with title](asfsaf "")
 `;
-
-let tokenizer: Tokenizer = new Tokenizer(str);
-tokenizer.tokenize();
-
-let tokens: Token[] = tokenizer.tokens;
-let parser: Parser = new Parser(tokens);
-
-/*
-tokenizer.tokens.forEach((token: Token) => {
-    process.stdout.write(token.typestr + ' ');
-    if (token.typestr == 'NEWLINE') {
-        process.stdout.write('\n');
-    }
-})
-*/
-
-console.log("---------");
-
-//setTimeout(() => {
-    parser.parse();
-    parser.elements.forEach((el: Element) => {
-        process.stdout.write(el.html);
-    })
-//}, 5000);
+console.log(str, str.length);
+parse(str);

@@ -1,512 +1,152 @@
-import Token from './Token'
-import TokenType from './TokenType'
 import Element from './Element'
 
-export default class Parser {
-    index: number;
-    currentLine: number;
-    lineStartIndices: number[];
-    tokens: Token[];
-    elements: Element[];
-    subencapsulations: TokenType[];
-    htmlKeywords: Map<TokenType, string>;
+let parse = (buffer: string): Element[] => {
+    let elements: Element[]     = [];
+    let paragraphs: string[]    = buffer.split('\n\n');
+    /**
+     * curParIdx: current paragraph index
+     * index: index that is used at inside of paragraph
+     */
+    let curParIdx: number       = 0;
+    let index: number           = 0;
 
-    constructor(tokens: Token[]) {
-        this.index = 0;
-        this.currentLine = 0;
-        this.lineStartIndices = [ 0 ];
-        this.tokens = tokens;
-        this.elements = [];
-        this.subencapsulations = [ 
-            TokenType.DOUBLE_ASTERISKS, 
-            TokenType.DOUBLE_UNDERSCORE,
-            TokenType.ASTERISKS,
-            TokenType.UNDERSCORE,
-            TokenType.BACKTICK
-        ];
+    /**
+     * chars that should be handled
+     */
+   // const DOUBLE_QUOTE: string  = '"';
+   // const LEFT_PAR: string      = '(';
+   // const RIGHT_PAR: string     = ')';
+   // const LEFT_SQ_PAR: string   = '[';
+   // const RIGHT_SQ_PAR: string  = ']';
 
-        this.htmlKeywords = new Map();
+    type t_operators            = { match: Function };
+    type t_operations           = { [key: string]: t_operators };
+    type t_matchType            = null | 'LINK' | 'LINK_W_TITLE';
+    type t_matchRule            = { type: t_matchType, rule: string[] };
+    /**
+     * rules:
+     *  not whitespace '! '
+     *  **,' '
+     */
 
-        this.detectLineStartIndices();
-        this.mapKeywords();
-    }
+    /**
+     * helper functions
+     */
+   // let peek = (padding: number = 0): string | null => curParIdx < paragraphs.length ?
+   //     index < paragraphs[curParIdx].length ? paragraphs[curParIdx][index + padding] : null :
+   //     null;
 
-    private mapKeywords(): void {
-        this.htmlKeywords.set(TokenType.H1, 'h1');
-        this.htmlKeywords.set(TokenType.H2, 'h2');
-        this.htmlKeywords.set(TokenType.H3, 'h3');
-        this.htmlKeywords.set(TokenType.H4, 'h4');
-        this.htmlKeywords.set(TokenType.H5, 'h5');
-        this.htmlKeywords.set(TokenType.H6, 'h6');
+   // let isSpaceChar = (char: string): boolean => char == ' ' || char === '\n' || char == '\t';
 
-        this.htmlKeywords.set(TokenType.EQ, 'h1');
-        this.htmlKeywords.set(TokenType.MINUS, 'h2');
-
-        this.htmlKeywords.set(TokenType.DOUBLE_ASTERISKS, 'strong');
-        this.htmlKeywords.set(TokenType.DOUBLE_UNDERSCORE, 'strong');
-
-        this.htmlKeywords.set(TokenType.DOUBLE_TILDE, 'del');
-
-        this.htmlKeywords.set(TokenType.ASTERISKS, 'i');
-        this.htmlKeywords.set(TokenType.UNDERSCORE, 'i');
-
-        this.htmlKeywords.set(TokenType.BACKTICK, 'code');
-    }
-
-    private detectLineStartIndices(): void {
-        for (let i: number = 1; i < this.tokens.length; i++) {
-            if (this.tokens[i - 1].type == TokenType.NEWLINE) {
-                this.lineStartIndices.push(i);
-            }
-        }
-    }
-
-    private consume(): Token {
-        return this.tokens[this.index++];
-    }
-    
-    private peek(padding: number = 0): Token {
-        return this.tokens[this.index + padding];
-    }
-
-    private seekFor(tokentype: TokenType): boolean {
-        let index: number = this.index;
-
-        while (this.index < this.tokens.length) {
-            if (this.tokens[index].type == tokentype) {
-                break;
-            }
-
-            if (this.tokens[index].type == TokenType.NEWLINE || this.index >= this.tokens.length) {
-                return false;
-            }
-
-            index++;
-        }
-
-        return true;
-    }
-
-    private look(tokentype: TokenType): boolean {
-        return this.peek().type == tokentype;
-    }
-
-    private addElement(html: string): void {
-        this.elements.push(new Element(html));
-    }
-
-    private encapsulate(untiltoken: Token): string {
-        let isEnclosed: boolean = this.seekFor(untiltoken.type);
-
-        if (isEnclosed) {
-            let html: string = `<${this.htmlKeywords.get(untiltoken.type)}>`;
-
-            while (!this.look(untiltoken.type)) {
-                let token: Token = this.consume();
-
-                if (this.subencapsulations.indexOf(token.type) > -1) {
-                    html += this.encapsulate(token);
-                } else {
-                    html += token.literal;
-                }
-            }
-
-            /**
-             * cosume last enclosing token
-             */
-            this.consume();
-
-            html += `<\\${this.htmlKeywords.get(untiltoken.type)}>`;
-            return html;
+    let createRuleFn = (rule: string): Function => {
+        if (rule[0] == '!') {
+            return (source: string, idx: number): boolean => (
+                rule.slice(1)
+                .split(',')
+                .filter((c: string) => (
+                    c != source.substring(idx, idx + c.length)
+                )).length > 0 ? true : false
+            )
         } else {
-            return untiltoken.literal;
+            return (source: string, idx: number): boolean => (
+                rule.split(',')
+                .filter((
+                    (c: string) => c == source.substring(idx, idx + c.length)
+                )).length > 0 ? true : false
+            );
         }
     }
 
-    private getUntil(untiltoken: TokenType): string {
-        let html: string = '';
+    let check = (checkList: string[], start: number): [ boolean, number, number ] => {
+        let curPar: string = paragraphs[curParIdx];
+        let idx: number = start;
+        let checkListSize: number = checkList.length;
+        
+        let patternStart: number = -1;
+        let patternEnd: number = -1;
 
-        while (!this.look(untiltoken) && this.index < this.tokens.length - 1) {
-            let token: Token = this.consume();
+        let getRuleFn = (): Function | null => {
+            let rule: string | undefined = checkList[0];
+            if (!rule) return null;
 
-            if (this.subencapsulations.indexOf(token.type) > -1) {
-                html += this.encapsulate(token);
-            } else {
-                html += token.literal;
-            }
-        }
+            return createRuleFn(rule);
+        } 
 
-        return html;
-    }
+        let ruleCheck: Function | null = getRuleFn();
+        if (!ruleCheck) return [ false, patternStart, patternEnd ];
 
-    private checkUntil(untiltoken: TokenType, checktoken: TokenType): boolean {
-        let index: number = this.index;
+        while (idx < curPar.length) {
+            if (ruleCheck(curPar, idx)) {
+                if (checkList.length == checkListSize) patternStart = idx;
 
-        while (index < this.tokens.length) {
-            if (this.tokens[index].type == untiltoken) {
-                break;
-            }
+                checkList.shift();
+                ruleCheck = getRuleFn();
 
-            if (this.tokens[index].type != checktoken) {
-                return false;
-            }
-
-            index++;
-        }
-
-        /**
-         * prevent false positive because of adjacent newlines
-         */
-        return index != this.index ? true : false;
-    }
-
-    private backwardUntil(untiltoken: TokenType): void {
-        while (this.index > 0) {
-            if (this.tokens[this.index - 1].type == untiltoken) {
-                break;
-            }
-
-            this.index--;
-        }
-
-        while (this.elements.length - 1 > 0) {
-            if (this.elements[this.elements.length - 1].html == '\n') {
-                break;
-            }
-
-            this.elements.pop();
-        }
-    }
-
-    private forwardUntil(untiltoken: TokenType): void {
-        while (this.index < this.tokens.length - 1) {
-            if (this.look(untiltoken)) {
-                break;
-            }
-
-            this.consume();
-        }
-    }
-
-    private getTokensOfLine(lineIndex: number): Token[] {
-        let lineStartIndex: number = this.lineStartIndices[lineIndex];
-        let tokens: Token[] = [];
-
-        if (lineIndex != undefined) {
-            while (lineStartIndex < this.tokens.length) {
-                if (this.tokens[lineStartIndex].type == TokenType.NEWLINE) {
+                if (!ruleCheck) {
+                    patternEnd = idx;
                     break;
                 }
-
-                tokens.push(this.tokens[lineStartIndex]);
-
-                lineStartIndex++;
             }
+
+            idx++;
         }
 
-        return tokens;
+        return checkList.length == 0 ? [ true, patternStart, patternEnd ] : 
+            [ false, patternStart, patternEnd ];
     }
 
-    private checkPipeBetweenStr(lineTokens: Token[]): boolean {
-        let isThereAPipeBetweenStr: boolean = false;
+    let getOperators = (chars: string): t_operators | null => {
+        let operations: t_operations = {
+            '[': {
+                match: (): [ boolean, t_matchType ] => {
+                    /**
+                     * matchRules array must be ordered by precedence
+                     */
+                    let matchRules: t_matchRule[] = [
+                        { type: 'LINK_W_TITLE', rule: ['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'] },
+                        { type: 'LINK', rule: ['[', '! ', ']', '(', ')'] }
+                    ];
 
-        for (let i: number = 1; i < lineTokens.length - 1; i++) {
-            if (lineTokens[i - 1].type != TokenType.PIPE && 
-                lineTokens[i].type == TokenType.PIPE &&
-                lineTokens[i + 1].type != TokenType.PIPE) {
-                isThereAPipeBetweenStr = true;
-            }
-        }
+                    for (let i: number = 0; i < matchRules.length; i++) {
+                        let matchRule: t_matchRule = matchRules[i];
 
-        return isThereAPipeBetweenStr;
-    }
-
-    private deleteOuterPipes(lineTokens: Token[]): Token[] {
-        if (lineTokens[0].type == TokenType.PIPE) {
-            lineTokens.shift();
-        }
-
-        if (lineTokens[lineTokens.length - 1].type == TokenType.PIPE) {
-            lineTokens.pop();
-        }
-
-        return lineTokens;
-    }
-
-    private checkPipePattern(condition: Function, pipeAdjacent: TokenType, matchThreshold: number, tokens: Token[]): boolean {
-        let matchedPatterns: number = 0;
-
-        for (let i: number = 0; i < tokens.length; i++) {
-            if (condition(tokens[i], pipeAdjacent)) {
-                if (i < tokens.length - 1) {
-                    if (tokens[i + 1].type == TokenType.PIPE) {
-                        matchedPatterns++;
+                        if (check(matchRule.rule, index)) {
+                            return [ true, matchRule.type ]
+                        }
                     }
-                } else if (tokens.length > 1) {
-                    matchedPatterns++;
+
+                    return [ false, null ];
                 }
             }
         }
 
-        return matchedPatterns < matchThreshold ? false : true;
+        return operations[chars] || null;
     }
 
-    private constructTableIfThereIs(): boolean {
-        if (this.currentLine == this.lineStartIndices.length - 1) {
-            return false;
+    /**
+     * parsing
+     */
+    while (curParIdx < paragraphs.length) {
+        let curPar: string = paragraphs[curParIdx];
+
+        while (index < paragraphs[curParIdx].length) {
+            let char: string = curPar[index];
+            let charOperators: t_operators | null = getOperators(char);
+
+            if (charOperators) {
+               console.log(charOperators.match()); 
+            }
+
+            index++;
         }
 
-        let currentLine: Token[] = this.getTokensOfLine(this.currentLine)
-        .filter((token: Token) => token.type != TokenType.WHITESPACE);
-
-        /**
-         * check is there any pipe that separates at least 2 non pipe thing
-         */
-        let isThereAPipeBetweenStr: boolean = this.checkPipeBetweenStr(currentLine);
-
-        if (isThereAPipeBetweenStr) {
-            /**
-             * delete outer pipes we dont need them
-             */
-            currentLine = this.deleteOuterPipes(currentLine);
-
-            /**
-             * get the pipe count
-             */
-            let pipeCount: number = currentLine
-            .filter((token: Token) => token.type == TokenType.PIPE).length;
-
-            /**
-             * we have to find innerpipecount + 1 dash in the next line to construct
-             * a table
-             */
-            let seekingDashCount: number = pipeCount + 1;
-
-            let nextLine: Token[] = this.getTokensOfLine(this.currentLine + 1)
-            .filter((token: Token) => token.type != TokenType.WHITESPACE);
-
-            let isThereDashPattern: boolean = this.checkPipePattern(
-                (token: Token, pipeAdjacent: TokenType): boolean => {
-                    return token.type == pipeAdjacent
-                }, TokenType.LONG_MINUS, seekingDashCount, nextLine);
-
-            /**
-             * if we cant find the pattern to construct the table
-             * just return false
-             */
-            if (!isThereDashPattern) {
-                return false;
-            }
-
-            let html: string = '<table>\n';
-
-            /**
-             * get back to the beginning of the line and 
-             * stringify all the things.
-             */
-            this.backwardUntil(TokenType.NEWLINE);
-
-            let head: string[] = this.getUntil(TokenType.NEWLINE).split('|');
-
-            /**
-             * consume remaining newline
-             */
-            this.consume();
-            this.currentLine++;
-
-            html += '<tr>\n';
-            for (let i: number = 0; i < seekingDashCount; i++) {
-                html += `<th>${head[i] ? head[i].trim() : ''}</th>\n`;
-            }
-            html += '</tr>\n';
-
-            /**
-             * forward header dashes
-             */
-            this.forwardUntil(TokenType.NEWLINE);
-            this.consume();
-            this.currentLine++;
-
-            /**
-             * after the header part we will look for
-             * forward rows that contains the content
-             */
-            while (this.currentLine < this.lineStartIndices.length) {
-                /**
-                 * nearly same thing like the header part but we will
-                 * look for non pipe tokens that has a pipe at the right side of them
-                 */
-                let forwardLine: Token[] = this.getTokensOfLine(this.currentLine)
-                .filter((token: Token) => token.type != TokenType.WHITESPACE);
-
-                let isThereRowPattern: boolean = this.checkPipePattern(
-                    (token: Token, exceptThis: TokenType) => {
-                        return token.type != exceptThis
-                    }, TokenType.PIPE, 1, forwardLine);
-
-                if (!isThereRowPattern) {
-                    break;
-                }
-
-                let row: string[] = this.getUntil(TokenType.NEWLINE).split('|');
-
-                /**
-                 * consume the remaining newline
-                 */
-                this.consume();
-                this.currentLine++;
-
-                html += '<tr>\n';
-                for (let i: number = 0; i < seekingDashCount; i++) {
-                    html += `<td>${row[i] ? row[i].trim() : ''}</td>\n`
-                }
-                html += '</tr>\n';
-            }
-
-            html += '</table>';
-            this.addElement(html);
-        } else {
-            let nextLineDashCount: number = this.getTokensOfLine(this.currentLine + 1)
-            .filter((token: Token) => token.type == TokenType.LONG_MINUS)
-            .length;
-
-            if ((nextLineDashCount < 1) || 
-                currentLine[0].type != TokenType.PIPE && 
-                currentLine[currentLine.length - 1].type != TokenType.PIPE) {
-                return false;
-            }
-
-            /**
-             * get back to the beginning of the line and 
-             * stringify all the things.
-             */
-            this.backwardUntil(TokenType.NEWLINE);
-
-            let head: string = this.getUntil(TokenType.NEWLINE)
-            .split('|')
-            .join('');
-
-            /**
-             * consume remaining newline
-             */
-            this.consume();
-            this.currentLine++;
-
-            let html: string = `<table>\n<tr><th>${head.trim()}</th></tr>\n`;
-
-            /**
-             * forward header dashes
-             */
-            this.forwardUntil(TokenType.NEWLINE);
-            this.consume();
-            this.currentLine++;
-
-            while (this.currentLine < this.lineStartIndices.length) {
-                let forwardLinePipeCount: number = this.getTokensOfLine(this.currentLine)
-                .filter((token: Token) => token.type == TokenType.PIPE)
-                .length;
-
-                if (forwardLinePipeCount == 0) {
-                    break;
-                }
-
-                let row: string = this.getUntil(TokenType.NEWLINE)
-                .split('|')
-                .join('');
-
-                html += `<tr><td>${row.trim()}</td></tr>\n`;
-
-                /**
-                 * consume the remaining newline
-                 */
-                this.consume();
-                this.currentLine++;
-            }
-
-            html += '</table>';
-            this.addElement(html);
-        }
-
-        return true;
+        curParIdx++;
     }
 
-    /* ********************** */
-    public parse(): void {
-        let token: Token = this.consume();
+   // let t = check(['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'], index);
+   // console.log(t);
 
-        switch (token.type) {
-            case TokenType.WHITESPACE: this.addElement(' '); break;
-
-            case TokenType.NEWLINE: {
-                if (this.checkUntil(TokenType.NEWLINE, TokenType.EQ) || this.checkUntil(TokenType.NEWLINE, TokenType.MINUS)) {
-                    let token: Token = this.peek();
-
-                    /**
-                     * backward consumed newline token 
-                     */
-                    this.index--;
-                    this.backwardUntil(TokenType.NEWLINE);
-
-                    let tag: string = this.htmlKeywords.get(token.type) || 'h1';
-
-                    this.addElement(`<${tag} class='ld-${tag}-bordered'>${this.getUntil(TokenType.NEWLINE)}</${tag}>`)
-
-                    /**
-                     * consume remaining newline after we bacwarded it
-                     */
-                    this.consume();
-
-                    /**
-                     * just skip until the next line
-                     */
-                    this.forwardUntil(TokenType.NEWLINE);
-
-                    /**
-                     * again consume the reaming newline but after we forwarded it
-                     */
-                    this.consume();
-                }
-
-                this.currentLine++;
-                this.addElement('\n'); 
-            } break;
-
-            case TokenType.H1:
-            case TokenType.H2:
-            case TokenType.H3:
-            case TokenType.H4:
-            case TokenType.H5:
-            case TokenType.H6: {
-                if (this.look(TokenType.WHITESPACE)) {
-                    this.consume();
-
-                    let tag: string = this.htmlKeywords.get(token.type) || 'h5'; 
-                    this.addElement(`<${tag}>${this.getUntil(TokenType.NEWLINE)}</${tag}>`);
-                } else {
-                    this.addElement('#'.repeat(Number(token.literal)));
-                }
-            } break;
-
-            case TokenType.DOUBLE_ASTERISKS: 
-            case TokenType.DOUBLE_UNDERSCORE: 
-            case TokenType.DOUBLE_TILDE:
-            case TokenType.ASTERISKS:
-            case TokenType.UNDERSCORE:
-            case TokenType.BACKTICK:
-                this.addElement(this.encapsulate(token));
-            break;
-
-            case TokenType.PIPE: {
-                if (!this.constructTableIfThereIs()) {
-                    this.addElement(token.literal);
-                }
-            } break;
-
-            default: this.addElement(token.literal); break;
-        }
-
-        if (this.index < this.tokens.length - 1) {
-            this.parse();
-        }
-    }
+    return elements;
 }
+
+export default parse;
