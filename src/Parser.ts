@@ -1,4 +1,4 @@
-import Element from './Element'
+import Element, { t_attribute }from './Element'
 
 let parse = (buffer: string): Element[] => {
     /**
@@ -20,6 +20,12 @@ let parse = (buffer: string): Element[] => {
      * t_matchResult                  checkResult, mathRule.type, patternStart, patternEnd, matchCount
      */
     type t_matchResult              = [ boolean, t_matchType, number, number, number ];
+    /**
+     * t_pipeMatchResult              checkResult, rowsRange, columnCount
+     */
+    type t_textAlign                = { align: 'left' | 'right' | 'center' };
+    type t_pipeMatchResult          = [ boolean, number, number, t_textAlign[] | null ];
+    type t_extractFixesResult       = { source: string, left: boolean, right: boolean };
 
     /**
      * variables
@@ -44,7 +50,7 @@ let parse = (buffer: string): Element[] => {
         return arr;
     }
 
-    let lineStartIdxs: number[][]    = getLineStartIdxs(paragraphs);
+    let lineStartIdxs: number[][]   = getLineStartIdxs(paragraphs);
     let curLineIdx: number          = 0;
 
     /**
@@ -179,10 +185,31 @@ let parse = (buffer: string): Element[] => {
     }
 
     /**
+     * remove the given char from the given source string if it exist as a prefix or suffix
+     * and return modified string and whether is the char was founded as prefix or suffix
+     */
+    let extractFixes = (source: string, char: string): t_extractFixesResult => {
+        let left: boolean = false;
+        let right: boolean = false;
+
+        if (source[0] == char) {
+            source = source.substring(1);
+            left = true;
+        }
+
+        if (source[source.length - 1] == char) {
+            source = source.substring(0, source.length - 1);
+            right = true;
+        }
+
+        return { source, left, right }
+    }
+
+    /**
      * gets a char arg and executes related match function 
      * and return result if it is available in matchTable
      */
-    let match = (char: string): t_matchResult => {
+    let match = (char: string): t_matchResult | t_pipeMatchResult => {
         let resolveMatchRules = (matchRules: t_matchRule[], start: number): t_matchResult => {
             for (let i: number = 0; i < matchRules.length; i++) {
                 let matchRule: t_matchRule = matchRules[i];
@@ -210,35 +237,13 @@ let parse = (buffer: string): Element[] => {
                 return resolveMatchRules(matchRules, index);
             },
 
-            '|': (): t_matchResult => {
+            '|': (): t_pipeMatchResult => {
                 /**
                  * if the current line is not following by an another new line
                  * table can not be constructed so just return false
                  */
                 if (curLineIdx == paragraphs[curParIdx].length - 1) {
-                    return [ false, null, -1, -1, 0 ];
-                }
-
-                /**
-                 * remove the given char from the given source string if it exist as a prefix or suffix
-                 * and return modified string and whether is the char was founded as prefix or suffix
-                 */
-                type t_extractFixesResult = { source: string, left: boolean, right: boolean };
-                let extractFixes = (source: string, char: string): t_extractFixesResult => {
-                    let left: boolean = false;
-                    let right: boolean = false;
-
-                    if (source[0] == char) {
-                        source = source.substring(1);
-                        left = true;
-                    }
-
-                    if (source[source.length - 1] == char) {
-                        source = source.substring(0, source.length - 1);
-                        right = true;
-                    }
-
-                    return { source, left, right }
+                    return [ false, 0, 0, null ];
                 }
 
                 /**
@@ -296,27 +301,118 @@ let parse = (buffer: string): Element[] => {
                  * return false
                  */
                 if (nextLineDashes.length < columns) {
-                    return [ false, null, -1, -1, 0 ];
+                    return [ false, 0, 0, null ];
                 }
 
                 /**
                  * check the dashes that are in column limit range are valid or not
                  */
+                let textAligns: t_textAlign[] = []
                 for (let i: number = 0; i < columns; i++) {
                     if (!nextLineDashes[i].valid) {
-                        return [ false, null, -1, -1, 0 ];
+                        return [ false, 0, 0, null ];
                     }
+
+                    let align: 'left' | 'right' | 'center' = 'left';
+
+                    if (nextLineDashes[i].semicolons.right) align = 'right';
+                    if (nextLineDashes[i].semicolons.left && nextLineDashes[i].semicolons.right) align = 'center';
+
+                    textAligns.push({ align });
                 }
 
-                let rowIdx: number = curLineIdx + 1;
+                let rowIdx: number = curLineIdx + 2;
+                let rowRange: number = 0;
 
-                return [ true, 'TABLE_HEAD', -1, -1, 0 ]
+                while (rowIdx < paragraphs[curLineIdx].length) {
+                    let row: string = getLine(lineStartIdxs[curParIdx][rowIdx]);
+
+                    if (ccount(row, '|') == 0) {
+                        break;
+                    }
+
+                    rowRange++;
+                    rowIdx++;
+                }
+
+                return [ true, rowRange, columns, textAligns ];
             }
         }
 
         return matchTable.hasOwnProperty(char) ?
             matchTable[char]() :
             [ false, null, -1, -1, 0 ];
+    }
+
+    let extract = (elementName: string): Function | null => {
+        let operations: t_operations = {
+                'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]) => {
+                let table: Element = new Element('table');
+                let headtr: Element = new Element('tr');
+
+                let headstr: string = getLine(lineStartIdxs[curParIdx][curLineIdx]);
+                headstr = extractFixes(headstr, '|').source;
+
+                let headFields: string[] = headstr.split('|');
+                
+                for (let i: number = 0; i < columnCount; i++) {
+                    let text: string = headFields[i] || '';
+                    let th: Element = new Element('th', [], text);
+
+                    headtr.appendChild(th);
+                }
+
+                table.appendChild(headtr);
+                
+                if (rowRange == 0) {
+                    if (curLineIdx + 2 < lineStartIdxs[curParIdx].length) {
+                        index = lineStartIdxs[curParIdx][curLineIdx + 2];
+                    } else {
+                        index = paragraphs[curParIdx].length;
+                    }
+
+                    return;
+                }
+
+                let rowIdx: number = curLineIdx + 2;
+
+                for (let i: number = 0; i < rowRange; i++) {
+                    let rowstr: string = getLine(lineStartIdxs[curParIdx][rowIdx + i]);
+                    rowstr = extractFixes(rowstr, '|').source;
+
+                    let rowFields: string[] = rowstr.split('|');
+
+                    let tr: Element = new Element('tr');
+
+                    for (let j: number = 0; j < columnCount; j++) {
+                        let text: string = rowFields[j] || '';
+                        let textAlign: t_textAlign = textAligns[j];
+                        let attributes: t_attribute[] = [];
+
+                        if (textAlign.align != 'left') {
+                            attributes.push({ key: 'align', value: textAlign.align });
+                        }
+
+                        let td: Element = new Element('td', attributes, text);
+                        tr.appendChild(td);
+                    }
+
+                    table.appendChild(tr);
+                }
+                console.log(table.emitHtml());
+                elements.push(table);
+
+                if (rowIdx + rowRange < lineStartIdxs[curParIdx].length) {
+                    index = lineStartIdxs[curParIdx][rowIdx + rowRange];
+                } else {
+                    index = paragraphs[curParIdx].length;
+                }
+            }
+        }
+
+        return operations.hasOwnProperty(elementName) ?
+            operations[elementName] :
+            null;
     }
 
     /**
@@ -329,7 +425,13 @@ let parse = (buffer: string): Element[] => {
             },
 
             '|': () => {
-                console.log(match('|'));
+                let [ matchRes, rowRange, columnCount, textAligns ] = match('|');
+                if (!matchRes) return;
+
+                let extractFn = extract('table');
+                if (!extractFn) return;
+
+                extractFn(rowRange, columnCount, textAligns || []);
             },
 
             '[': () => {
