@@ -5,33 +5,43 @@ let parse = (buffer: string): Element[] => {
      * types 
      */
 
-    /**
-     * t_checkResult                  checkResult, patternStart, patternEnd, matchCount
-     */
-    type t_checkResult              = [ boolean, number, number, number ];
     type t_operations               = { [key: string]: Function };
-
-    type t_matchType                = null | 
-        'LINK' | 'LINK_W_TITLE' | 
-        'TABLE_HEAD';
-
-    type t_matchRule                = { type: t_matchType, rule: string[] };
+    /**
+     * t_ruleCheckResult             result, nextidx
+     */
+    //type t_ruleCheckResult          = [ boolean, number ];
     /**
      * t_matchResult                  checkResult, mathRule.type, patternStart, patternEnd, matchCount
      */
-    type t_matchResult              = [ boolean, t_matchType, number, number, number ];
-    /**
-     * t_pipeMatchResult              checkResult, rowsRange, columnCount
-     */
     type t_textAlign                = { align: 'left' | 'right' | 'center' };
-    type t_pipeMatchResult          = [ boolean, number, number, t_textAlign[] | null ];
+    /**
+     * t_tableMatchResult              checkResult, rowsRange, columnCount, textAligns
+     */
+    type t_tableMatchResult         = [ boolean, number, number, t_textAlign[] | null ];
     type t_extractFixesResult       = { source: string, left: boolean, right: boolean };
+    /**
+     * t_getBetweenResult             string, strstart, strend
+     */
+    type t_getBetweenResult         = [ string, number, number ];
+    /**
+     * t_operateInlineResult          Element, idx
+     */
+    type t_operateInlineResult      = [ Element, number ];
+    type t_seqType                  = null | 'BOLD';
+    type t_seqRule                  = { type: t_seqType, seq: string[] };
+    type t_spottedSeq               = { idx: number, len: number };
+    type t_seqResult                = { type: t_seqType, spottedSeqs: t_spottedSeq[] }
+    type t_matchResult              = { pStart: number, pEnd: number };
 
     /**
      * variables
      */
     let elements: Element[]         = [];
     let paragraphs: string[]        = buffer.split('\n\n');
+    let textBuffer: string          = '';
+
+    let paragraphElBuffer: Element;
+    //let textElBuffer: Element;
 
     let getLineStartIdxs = (paragraphs: string[]): number[][] => {
         let arr: number[][] = [];
@@ -83,35 +93,137 @@ let parse = (buffer: string): Element[] => {
         return str;
     }
 
+    let getBetween = (opening: string, closing: string, start: number, text: string): t_getBetweenResult => {
+        let idx: number = start;
+        let str: string = '';
+        let strstart: number = -1;
+        let strend: number = -1;
+        let scanning: boolean = false;
+
+        while (idx < text.length) {
+            if (opening == text.substring(idx, idx + opening.length)) {
+                scanning = true;
+                strstart = idx + opening.length;
+                idx = idx + opening.length;
+                continue;
+            }
+
+            if (closing == text.substring(idx, idx + opening.length)) {
+                strend = idx - 1;
+                return [ str, strstart, strend ]
+            }
+
+            if (scanning) {
+                str += text[idx];
+            }
+
+            idx++;
+        }
+
+        return [ str, strstart, strend ];
+    }
+
+    let checkSeq = (seq: string[], start: number, text: string, terminators: string[] = []): t_spottedSeq[] | false => {
+        if (seq.length == 0) return false;
+
+        let idx: number = start;
+        let seqIdx: number = 0;
+        let spottedSeqs: t_spottedSeq[] = [];
+
+        while (idx < text.length && seqIdx < seq.length) {
+            if (terminators.indexOf(seq[seqIdx]) > -1) return false;
+
+            if (seq[seqIdx] == text.substring(idx, idx + seq[seqIdx].length)) {
+                spottedSeqs.push({ idx: idx, len: seq[seqIdx].length });
+                idx = idx + seq[seqIdx].length;
+                seqIdx++;
+                continue;
+            }
+
+            idx++;
+        }
+
+        return spottedSeqs.length > 0 ?
+            spottedSeqs :
+            false;
+    }
+
     /**
      * creates proper rule check fn by looking the firs char of rule string
      *
      * @rule: string
-     *      ! -> not equal
+     *      N -> not equal
      *      , -> seperates multiple chars
+     *      F -> followed by
      *      
      *       example:
      *           '[,#' true if the char is equal to [ or # char
-     *           '! ,\n' true if the char is NOT equal to whitespace or newline
+     *           'N ,\n' true if the char is NOT equal to whitespace and newline
+     *           'F**\/N ' true if the ** rule is followed by a not whitespace char rule
      */
-    let createRuleFn = (rule: string): Function => {
-        if (rule[0] == '!') {
-            return (source: string, idx: number): boolean => (
-                rule.slice(1)
-                .split(',')
-                .filter((c: string) => (
-                    c != source.substring(idx, idx + c.length)
-                )).length > 0 ? true : false
-            )
-        } else {
-            return (source: string, idx: number): boolean => (
-                rule.split(',')
-                .filter((
-                    (c: string) => c == source.substring(idx, idx + c.length)
-                )).length > 0 ? true : false
-            );
-        }
-    }
+    //let createRuleFn = (rule: string): Function => {
+    //    switch(rule[0]) {
+    //        case 'F': {
+    //            return (source: string, idx: number): t_ruleCheckResult => {
+    //                let rules: string[] = rule.slice(1).split('/');
+    //                let startIdx: number = idx;
+    //                let resultIdx: number = idx;
+
+    //                for (let i: number = 0; i < rules.length; i++) {
+    //                    let seq: string = rules[i];
+
+    //                    let ruleFn = createRuleFn(seq);
+    //                    let [ checkRes, nextIdx ] = ruleFn(source, startIdx);
+    //                    console.log(checkRes, nextIdx);
+
+    //                    if (!checkRes) {
+    //                        return [ false, -1 ];
+    //                    }
+
+    //                    if (i < rules.length - 2) {
+    //                        startIdx = nextIdx;
+    //                    } 
+
+    //                    resultIdx = nextIdx;
+    //                }
+
+    //                return [ true, resultIdx ];
+    //            }
+    //        }
+
+    //        case 'N': {
+    //            return (source: string, idx: number): t_ruleCheckResult => {
+    //                let rules: string[] = rule.slice(1).split(',');
+
+    //                for (let i: number = 0; i < rules.length; i++) {
+    //                    let seq: string = rules[i];
+
+    //                    if (seq == source.substring(idx, idx + seq.length)) {
+    //                        return [ false, -1 ];
+    //                    }
+    //                }
+
+    //                return [ true, idx + rules[0].length ];
+    //            }
+    //        }
+
+    //        default: {
+    //            return (source: string, idx: number): t_ruleCheckResult => {
+    //                let rules: string[] = rule.split(',');
+
+    //                for (let i: number = 0; i < rules.length; i++) {
+    //                    let seq: string = rules[i];
+
+    //                    if (seq == source.substring(idx, idx + seq.length)) {
+    //                        return [ true, idx + seq.length ]
+    //                    }
+    //                }
+
+    //                return [ false, -1 ]
+    //            }
+    //        }
+    //    }
+    //}
 
     /**
      * checks whether ruleList is matching until the end of the paragraphs or 
@@ -128,61 +240,53 @@ let parse = (buffer: string): Element[] => {
      * @terminators: string[]
      *     contains chars that will cause an immediate false return 
      */
-    let check = (ruleList: string[], start: number, terminators: string[] = []): t_checkResult => {
-        let curPar: string = paragraphs[curParIdx];
-        let idx: number = start;
+    //let check = (ruleList: string[], start: number, terminators: string[] = [], str: string | null = null): t_match[] => {
+    //    let curPar: string = str || paragraphs[curParIdx];
+    //    let idx: number = start;
 
-        let ruleIdx: number = 0;
-        let firstTimeMatched: boolean = false;
-        let matchCount: number = 0;
+    //    let ruleIdx: number = 0;
+    //    let scanning: boolean = false;
 
-        let patternStart: number = -1;
-        let patternEnd: number = -1;
+    //    let matchBuffer: t_match = { pStart: -1, pEnd: -1 };
+    //    let matchs: t_match[] = [];
 
-        let getRuleFn = (): Function | null => {
-            let rule: string | undefined = ruleList[ruleIdx];
-            if (!rule) return null;
+    //    if (ruleList.length == 0) {
+    //        return matchs;
+    //    }
 
-            return createRuleFn(rule);
-        } 
+    //    let getRuleFn = (): Function => createRuleFn(ruleList[ruleIdx]);
 
-        let ruleCheck: Function | null = getRuleFn();
-        if (!ruleCheck) return [ false, patternStart, patternEnd, matchCount ];
+    //    let ruleCheck: Function = getRuleFn();
 
-        while (idx < curPar.length) {
-            if (terminators.indexOf(curPar[idx]) > -1) {
-                return [ false, patternStart, patternStart, matchCount]
-            }
+    //    while (idx < curPar.length) {
+    //        if (terminators.indexOf(curPar[idx]) > -1) {
+    //            return matchs;
+    //        }
 
-            if (ruleCheck(curPar, idx)) {
-                if (!firstTimeMatched) {
-                    patternStart = idx;
-                    firstTimeMatched = true;
-                } 
+    //        let [ checkRes, nextIdx ] = ruleCheck(curPar, idx);
 
-                if (ruleIdx == ruleList.length - 1) {
-                    patternEnd = idx;
-                    matchCount++;
-                }
+    //        if (checkRes) {
+    //            if (!scanning) {
+    //                matchBuffer.pStart = idx;
+    //                scanning = true;
+    //            } 
 
-                ruleIdx = ++ruleIdx % ruleList.length;
-                ruleCheck = getRuleFn();
+    //            if (ruleIdx == ruleList.length - 1) {
+    //                matchBuffer.pEnd = nextIdx - 1;
+    //                matchs.push(matchBuffer);
+    //            }
 
-                if (!ruleCheck) {
-                    break;
-                }
-            }
+    //            ruleIdx = ++ruleIdx % ruleList.length;
+    //            ruleCheck = getRuleFn();
 
-            idx++;
-        }
+    //            idx = nextIdx;
+    //        } else {
+    //            idx++;
+    //        }
+    //    }
 
-        /**
-         * if ruleList is empty it means all rules are matched
-         */
-        return matchCount > 0 ? 
-            [ true, patternStart, patternEnd, matchCount ] : 
-            [ false, patternStart, patternEnd, matchCount ];
-    }
+    //    return matchs; 
+    //}
 
     /**
      * remove the given char from the given source string if it exist as a prefix or suffix
@@ -209,35 +313,39 @@ let parse = (buffer: string): Element[] => {
      * gets a char arg and executes related match function 
      * and return result if it is available in matchTable
      */
-    let match = (char: string): t_matchResult | t_pipeMatchResult => {
-        let resolveMatchRules = (matchRules: t_matchRule[], start: number): t_matchResult => {
-            for (let i: number = 0; i < matchRules.length; i++) {
-                let matchRule: t_matchRule = matchRules[i];
+    let match = (type: string): Function | null => {
+        let resolveSeqs = (seqs: t_seqRule[], start: number, str: string, terminators: string[] = []): t_seqResult | false => {
+            for (let i: number = 0; i < seqs.length; i++) {
+                let checkSeqRes: t_spottedSeq[] | false = checkSeq(seqs[i].seq, start, str, terminators);
 
-                let [ checkRes, patternStart, patternEnd, matchCount ] = check(matchRule.rule, start);
-
-                if (checkRes) {
-                    return [ true, matchRule.type, patternStart, patternEnd , matchCount ];
+                if (checkSeqRes) {
+                    return { type: seqs[i].type, spottedSeqs: checkSeqRes }
                 }
             }
 
-            return [ false, null, -1, -1, 0 ];
+            return false;
         }
+        /**
+         * seqRules array must be ordered by precedence
+         */
+        let operations: t_operations = {
+            'emphasis': (start: number, str: string): t_matchResult => {
+                let sequences: t_seqRule[] = [
+                    { type: 'BOLD', seq: ['**', '**'] }
+                ];
 
-        let matchTable: t_operations = {
-            '[': (): t_matchResult => {
-                /**
-                 * matchRules array must be ordered by precedence
-                 */
+                resolveSeqs(sequences, start, str);
+            },
+/*
+            'link': (start: number, str: string): t_matchResult => {
                 let matchRules: t_matchRule[] = [
                     { type: 'LINK_W_TITLE', rule: ['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'] },
                     { type: 'LINK', rule: ['[', '! ', ']', '(', ')'] }
                 ];
 
-                return resolveMatchRules(matchRules, index);
             },
-
-            '|': (): t_pipeMatchResult => {
+*/
+            'table': (): t_tableMatchResult => {
                 /**
                  * if the current line is not following by an another new line
                  * table can not be constructed so just return false
@@ -321,6 +429,10 @@ let parse = (buffer: string): Element[] => {
                     textAligns.push({ align });
                 }
 
+                /**
+                 * starting to check other rows that hold 
+                 * the content
+                 */
                 let rowIdx: number = curLineIdx + 2;
                 let rowRange: number = 0;
 
@@ -339,17 +451,21 @@ let parse = (buffer: string): Element[] => {
             }
         }
 
-        return matchTable.hasOwnProperty(char) ?
-            matchTable[char]() :
-            [ false, null, -1, -1, 0 ];
+        return operations.hasOwnProperty(type) ? 
+            operations[type] :
+            null;
     }
 
     let extract = (elementName: string): Function | null => {
         let operations: t_operations = {
-                'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]) => {
+            'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element | void => {
                 let table: Element = new Element('table');
+                let thead: Element = new Element('thead');
                 let headtr: Element = new Element('tr');
 
+                /**
+                 * get the table headers
+                 */
                 let headstr: string = getLine(lineStartIdxs[curParIdx][curLineIdx]);
                 headstr = extractFixes(headstr, '|').source;
 
@@ -362,8 +478,13 @@ let parse = (buffer: string): Element[] => {
                     headtr.appendChild(th);
                 }
 
-                table.appendChild(headtr);
-                
+                thead.appendChild(headtr);
+                table.appendChild(thead);
+
+                /**
+                 * if there is no additional row that is related to our table
+                 * forward the index to the next line beginning
+                 */
                 if (rowRange == 0) {
                     if (curLineIdx + 2 < lineStartIdxs[curParIdx].length) {
                         index = lineStartIdxs[curParIdx][curLineIdx + 2];
@@ -374,6 +495,11 @@ let parse = (buffer: string): Element[] => {
                     return;
                 }
 
+                /**
+                 * split the row strings and extract the text to 
+                 * element objects
+                 */
+                let tbody: Element = new Element('tbody');
                 let rowIdx: number = curLineIdx + 2;
 
                 for (let i: number = 0; i < rowRange; i++) {
@@ -397,16 +523,18 @@ let parse = (buffer: string): Element[] => {
                         tr.appendChild(td);
                     }
 
-                    table.appendChild(tr);
+                    tbody.appendChild(tr);
                 }
-                console.log(table.emitHtml());
-                elements.push(table);
+
+                table.appendChild(tbody);
 
                 if (rowIdx + rowRange < lineStartIdxs[curParIdx].length) {
                     index = lineStartIdxs[curParIdx][rowIdx + rowRange];
                 } else {
                     index = paragraphs[curParIdx].length;
                 }
+
+                return table;
             }
         }
 
@@ -418,43 +546,94 @@ let parse = (buffer: string): Element[] => {
     /**
      * gets the char and executes related operate fn
      */
-    let operate = (char: string): void => {
-        let operations: t_operations = {
-            '\n': () => {
+    let operate = (char: string): Element | void => {
+        switch (char) {
+            case '\n': {
                 curLineIdx++;
-            },
+                textBuffer += '\n';
+                return;
+            }
 
-            '|': () => {
-                let [ matchRes, rowRange, columnCount, textAligns ] = match('|');
+            case '|': {
+                let matchFn = match('table');
+                if (!matchFn) return;
+
+                let [ matchRes, rowRange, columnCount, textAligns ] = matchFn();
                 if (!matchRes) return;
 
                 let extractFn = extract('table');
                 if (!extractFn) return;
-
-                extractFn(rowRange, columnCount, textAligns || []);
-            },
-
-            '[': () => {
-                match('[');
+                
+                paragraphElBuffer.childs.pop();
+                return extractFn(rowRange, columnCount, textAligns || []);
             }
-        }       
 
-        if (operations.hasOwnProperty(char)) {
-            operations[char]();
-        } 
+            default: break;
+        }
+    }
+
+    let operateInline = (char: string, idx: number, text: string): t_operateInlineResult | void => {
+        switch(char) {
+            case '*': {
+                let matchFn = match('emphasis');
+                if (!matchFn) return;
+
+                console.log(matchFn(idx, text));
+            } break;
+        }
     }
 
     /**
      * parsing
      */
+    let inline = (text: string): Element | void => {
+        let idx: number = 0;
+        //let start: number = 0;
+        //textElBuffer = new Element('');
+
+        while (idx < text.length) {
+            let char: string = text[idx];
+            let opRes: t_operateInlineResult | void = operateInline(char, idx, text);
+
+            if (opRes) {
+                //let [ el, ridx ] = opRes;
+            }
+
+            idx++;
+        }
+    }
+
+    let pushTextEl = (): void => {
+        inline(textBuffer);
+        let textEl: Element = new Element('', [], textBuffer);
+        paragraphElBuffer.appendChild(textEl);
+        textBuffer = '';
+    }
+
     while (curParIdx < paragraphs.length) {
         let curPar: string = paragraphs[curParIdx];
+        getBetween("a", "b", 0);
+        paragraphElBuffer = new Element('p');
 
         while (index < paragraphs[curParIdx].length) {
             let char: string = curPar[index];
-            operate(char);
+            let el: Element | void = operate(char);
+
+            if (el) {
+                pushTextEl();
+                paragraphElBuffer.appendChild(el);
+            } else {
+                textBuffer += char;
+            }
+
             index++;
         }
+
+        if (textBuffer != '') {
+            pushTextEl();
+        }
+
+        elements.push(paragraphElBuffer);
 
         index = 0;
         curLineIdx = 0;
@@ -463,6 +642,9 @@ let parse = (buffer: string): Element[] => {
 
    // let t = check(['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'], index);
    // console.log(t);
+    //
+
+    elements.forEach((e: Element) => console.log(e.emitHtml()));
     return elements;
 }
 

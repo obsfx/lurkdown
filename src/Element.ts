@@ -13,7 +13,7 @@ export default class Element {
         this.tag = tag;
         this.attributes = attributes;
         this.text = text;
-        this.childs =[];
+        this.childs = [];
     }
 
     appendChild(child: Element): void {
@@ -21,14 +21,18 @@ export default class Element {
     }
 
     emitHtml(level: number = 0): string {
-        let tab: string = '    '.repeat(level);
+        if (this.tag == '') {
+            return `${this.text}`;
+        }
+
+        let tab: string = '  '.repeat(level);
         let attributes: string = this.attributes.reduce((prev: string, current: t_attribute) => {
             return `${prev} ${current.key}='${current.value}'`;
         }, '');
 
-        let html: string = `${tab}<${this.tag}${attributes}>\n${tab}${this.text}\n`;
+        let html: string = `\n${tab}<${this.tag}${attributes}>\n${tab}${this.text}`;
         this.childs.forEach((el: Element) => html += el.emitHtml(level + 1));
-        html += `${tab}</${this.tag}>\n`;
+        html += `\n${tab}</${this.tag}>`;
 
         return html;
     }

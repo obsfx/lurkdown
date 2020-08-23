@@ -1,14 +1,5 @@
 import parse from './Parser'
 
-let str: string = `
-deneme yazısı denem deneme deneme yazısı [I'm an inline-style link with title](asfsaf "")
-
-a|b|c
-:---:|:---|---:
-a | b
-b | k | j
-c |
-d
-`;
+let str: string = `**a** *deneme2* _deneme3_`;
 console.log(str, str.length);
 parse(str);
