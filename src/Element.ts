@@ -21,8 +21,9 @@ export default class Element {
     }
 
     emitHtml(level: number = 0): string {
-        if (this.tag == '') {
-            return `${this.text}`;
+        if (this.tag.trim() == '') {
+            this.childs.forEach((el: Element) => this.text += el.emitHtml());
+            return this.text;
         }
 
         let tab: string = '  '.repeat(level);

@@ -6,7 +6,6 @@ let parse = (buffer: string): Element[] => {
      */
 
     type t_operations               = { [key: string]: Function };
-    type t_seqs                     = { [key: string]: string[][] };
     /**
      * t_ruleCheckResult             result, nextidx
      */
@@ -28,10 +27,10 @@ let parse = (buffer: string): Element[] => {
      * t_operateInlineResult          Element, idx
      */
     type t_operateInlineResult      = [ Element, number ];
-    //type t_seqType                  = null | 'BOLD' | 'ITALIC';
-    //type t_seqRule                  = { type: t_seqType, seq: string[] };
+    type t_seqType                  = null | 'BOLD' | 'ITALIC';
+    type t_seqRule                  = { type: t_seqType, seq: string[] };
     type t_spottedSeq               = { idx: number, len: number };
-    //type t_seqResult                = { type: t_seqType, spottedSeqs: t_spottedSeq[] }
+    type t_seqResult                = { type: t_seqType, spottedSeqs: t_spottedSeq[] }
 
     /**
      * variables
@@ -92,10 +91,6 @@ let parse = (buffer: string): Element[] => {
 
         return str;
     }
-
-    let getBetween = (opening: t_spottedSeq, closing: t_spottedSeq, text: string) => (
-        text.substring(opening.idx + opening.len, closing.idx)
-    );
 
     //let getBetween = (opening: string, closing: string, start: number, text: string): t_getBetweenResult => {
     //    let idx: number = start;
@@ -318,12 +313,12 @@ let parse = (buffer: string): Element[] => {
      * and return result if it is available in matchTable
      */
     let match = (type: string): Function | null => {
-        let resolveSeqs = (seqs: string[][], start: number, str: string, terminators: string[] = []): t_spottedSeq[] | false => {
+        let resolveSeqs = (seqs: t_seqRule[], start: number, str: string, terminators: string[] = []): t_seqResult | false => {
             for (let i: number = 0; i < seqs.length; i++) {
-                let checkSeqRes: t_spottedSeq[] | false = checkSeq(seqs[i], start, str, terminators);
+                let checkSeqRes: t_spottedSeq[] | false = checkSeq(seqs[i].seq, start, str, terminators);
 
                 if (checkSeqRes) {
-                    return checkSeqRes;
+                    return { type: seqs[i].type, spottedSeqs: checkSeqRes }
                 }
             }
 
@@ -333,41 +328,14 @@ let parse = (buffer: string): Element[] => {
          * seqRules array must be ordered by precedence
          */
         let operations: t_operations = {
-            'bold': (start: number, str: string): t_spottedSeq[] | false => {
-                let sequences: t_seqs = {
-                    '_': [ ['__', '__'] ],
-                    '*': [ ['**', '**'] ] 
-                }
+            'emphasis': (start: number, str: string): t_seqResult | false => {
+                let sequences: t_seqRule[] = [
+                    { type: 'ITALIC', seq: ['_', '_'] },
+                    { type: 'BOLD', seq: ['__', '__'] },
+                    { type: 'BOLD', seq: ['**', '**'] }
+                ];
 
-                let seqs: string[][] = sequences[str[start]] ;
-                let spottedSeqs: t_spottedSeq[] | false = resolveSeqs(seqs, start, str);
-
-                if (!spottedSeqs) return false;
-
-                let inlineText: string = getBetween(spottedSeqs[0], spottedSeqs[1], str);
-
-                if (inlineText[0] == ' ' || inlineText[1] == ' ') return false;
-
-                return spottedSeqs;
-            },
-
-            'italic': (start: number, str: string): t_spottedSeq[] | false => {
-                let sequences: t_seqs = {
-                    '_': [ ['_', '_'] ],
-                    '*': [ ['*', '*'] ]
-                }
-
-                let seqs: string[][] = sequences[str[start]] ;
-                let spottedSeqs: t_spottedSeq[] | false = resolveSeqs(seqs, start, str);
-
-                if (!spottedSeqs) return false;
-
-                let inlineText: string = getBetween(spottedSeqs[0], spottedSeqs[1], str);
-                console.log(inlineText, 'resfas');
-
-                if (inlineText[0] == ' ' || inlineText[1] == ' ') return false;
-
-                return spottedSeqs;
+                return resolveSeqs(sequences, start, str);
             },
 /*
             'link': (start: number, str: string): t_matchResult => {
@@ -605,81 +573,47 @@ let parse = (buffer: string): Element[] => {
         }
     }
 
-    let operateInline = (char: string, idx: number, text: string): t_operateInlineResult | false => {
+    let operateInline = (char: string, idx: number, text: string): t_operateInlineResult | void => {
         switch(char) {
-            case '_':
             case '*': {
-                if ((char == '*' && text[idx + 1] == '*') ||
-                    (char == '_' && text[idx + 1] == '_')) {
-                    let matchFn = match('bold');
-                    if (!matchFn) return false;
+                let matchFn = match('emphasis');
+                if (!matchFn) return;
 
-                    let matchRes: t_spottedSeq[] | false = matchFn(idx, text);
-                    if (!matchRes) return false;
-
-                    let inlineText: string = getBetween(matchRes[0], matchRes[1], text);
-                    let strong: Element = new Element('strong');
-                    let strongInline: Element = inline(inlineText);
-
-                    strong.appendChild(strongInline);
-
-                    return [ strong, matchRes[1].idx + matchRes[1].len ];
-                } else {
-                    let matchFn = match('italic');
-                    if (!matchFn) return false;
-
-                    let matchRes: t_spottedSeq[] | false = matchFn(idx, text);
-                    if (!matchRes) return false;
-
-                    let inlineText: string = getBetween(matchRes[0], matchRes[1], text);
-                    let em: Element = new Element('em');
-                    let emInline: Element = inline(inlineText);
-
-                    em.appendChild(emInline);
-
-                    return [ em, matchRes[1].idx + matchRes[1].len ];
-                }
-            }
+                console.log(matchFn(idx, text));
+            } break;
         }
-
-        return false;
     }
 
     /**
      * parsing
      */
-    let inline = (text: string): Element => {
+    let inline = (text: string): Element | void => {
         let idx: number = 0;
-        let inlineTextBuffer: string = '';
-        let inlineEl: Element = new Element('');
+        //let start: number = 0;
+        //textElBuffer = new Element('');
 
         while (idx < text.length) {
-            let opRes: t_operateInlineResult | false = operateInline(text[idx], idx, text);
-            if (opRes) {
-                inlineEl.appendChild(new Element('', [], inlineTextBuffer));
-                inlineTextBuffer = '';
+            let char: string = text[idx];
+            let opRes: t_operateInlineResult | void = operateInline(char, idx, text);
 
-                let [ el, ridx ] = opRes;
-                inlineEl.appendChild(el);
-                idx = ridx;
-                continue;
+            if (opRes) {
+                //let [ el, ridx ] = opRes;
             }
 
-            inlineTextBuffer += text[idx];
             idx++;
         }
-
-        inlineEl.appendChild(new Element('', [], inlineTextBuffer));
-        return inlineEl;
     }
 
     let pushTextEl = (): void => {
-        paragraphElBuffer.appendChild(inline(textBuffer));
+        inline(textBuffer);
+        let textEl: Element = new Element('', [], textBuffer);
+        paragraphElBuffer.appendChild(textEl);
         textBuffer = '';
     }
 
     while (curParIdx < paragraphs.length) {
         let curPar: string = paragraphs[curParIdx];
+        //getBetween("a", "b", 0);
         paragraphElBuffer = new Element('p');
 
         while (index < paragraphs[curParIdx].length) {
