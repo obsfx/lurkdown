@@ -170,7 +170,6 @@ let parse = (buffer: string): Element[] => {
                 if (!spottedSeqs) return false;
 
                 let inlineText: string = getBetween(spottedSeqs[0], spottedSeqs[1], str);
-                console.log(inlineText, 'resfas');
 
                 if (inlineText[0] == ' ' || inlineText[1] == ' ') return false;
 
@@ -230,8 +229,8 @@ let parse = (buffer: string): Element[] => {
                         source,
                         left,
                         right
-                    } = extractFixes(str, ':');
-                    let isValid: boolean = isConsistOf(source, '-');
+                    } = extractFixes(str.trim(), ':');
+                    let isValid: boolean = isConsistOf(source.trim(), '-');
 
                     return { semicolons: { left, right }, str: source, valid: isValid }
                 });
