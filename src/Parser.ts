@@ -1,19 +1,11 @@
-import Element, { t_attribute }from './Element'
+import Element, { t_attribute } from './Element'
 
 let parse = (buffer: string): Element[] => {
     /**
      * types 
      */
-
     type t_operations               = { [key: string]: Function };
     type t_seqs                     = { [key: string]: string[][] };
-    /**
-     * t_ruleCheckResult             result, nextidx
-     */
-    //type t_ruleCheckResult          = [ boolean, number ];
-    /**
-     * t_matchResult                  checkResult, mathRule.type, patternStart, patternEnd, matchCount
-     */
     type t_textAlign                = { align: 'left' | 'right' | 'center' };
     /**
      * t_tableMatchResult              checkResult, rowsRange, columnCount, textAligns
@@ -21,17 +13,10 @@ let parse = (buffer: string): Element[] => {
     type t_tableMatchResult         = [ boolean, number, number, t_textAlign[] | null ];
     type t_extractFixesResult       = { source: string, left: boolean, right: boolean };
     /**
-     * t_getBetweenResult             string, strstart, strend
-     */
-    //type t_getBetweenResult         = [ string, number, number ];
-    /**
      * t_operateInlineResult          Element, idx
      */
     type t_operateInlineResult      = [ Element, number ];
-    //type t_seqType                  = null | 'BOLD' | 'ITALIC';
-    //type t_seqRule                  = { type: t_seqType, seq: string[] };
     type t_spottedSeq               = { idx: number, len: number };
-    //type t_seqResult                = { type: t_seqType, spottedSeqs: t_spottedSeq[] }
 
     /**
      * variables
@@ -41,7 +26,6 @@ let parse = (buffer: string): Element[] => {
     let textBuffer: string          = '';
 
     let paragraphElBuffer: Element;
-    //let textElBuffer: Element;
 
     let getLineStartIdxs = (paragraphs: string[]): number[][] => {
         let arr: number[][] = [];
@@ -69,11 +53,6 @@ let parse = (buffer: string): Element[] => {
      */
     let curParIdx: number           = 0;
     let index: number               = 0;
-
-    //let peek = (padding: number = 0): string | null => curParIdx < paragraphs.length ?
-    //   index < paragraphs[curParIdx].length ? paragraphs[curParIdx][index + padding] : null :
-    //   null;
-
     /**
      * helper functions
      */
@@ -96,36 +75,6 @@ let parse = (buffer: string): Element[] => {
     let getBetween = (opening: t_spottedSeq, closing: t_spottedSeq, text: string) => (
         text.substring(opening.idx + opening.len, closing.idx)
     );
-
-    //let getBetween = (opening: string, closing: string, start: number, text: string): t_getBetweenResult => {
-    //    let idx: number = start;
-    //    let str: string = '';
-    //    let strstart: number = -1;
-    //    let strend: number = -1;
-    //    let scanning: boolean = false;
-
-    //    while (idx < text.length) {
-    //        if (opening == text.substring(idx, idx + opening.length)) {
-    //            scanning = true;
-    //            strstart = idx + opening.length;
-    //            idx = idx + opening.length;
-    //            continue;
-    //        }
-
-    //        if (closing == text.substring(idx, idx + opening.length)) {
-    //            strend = idx - 1;
-    //            return [ str, strstart, strend ]
-    //        }
-
-    //        if (scanning) {
-    //            str += text[idx];
-    //        }
-
-    //        idx++;
-    //    }
-
-    //    return [ str, strstart, strend ];
-    //}
 
     let checkSeq = (seq: string[], start: number, text: string, terminators: string[] = []): t_spottedSeq[] | false => {
         if (seq.length == 0) return false;
@@ -153,146 +102,6 @@ let parse = (buffer: string): Element[] => {
     }
 
     /**
-     * creates proper rule check fn by looking the firs char of rule string
-     *
-     * @rule: string
-     *      N -> not equal
-     *      , -> seperates multiple chars
-     *      F -> followed by
-     *      
-     *       example:
-     *           '[,#' true if the char is equal to [ or # char
-     *           'N ,\n' true if the char is NOT equal to whitespace and newline
-     *           'F**\/N ' true if the ** rule is followed by a not whitespace char rule
-     */
-    //let createRuleFn = (rule: string): Function => {
-    //    switch(rule[0]) {
-    //        case 'F': {
-    //            return (source: string, idx: number): t_ruleCheckResult => {
-    //                let rules: string[] = rule.slice(1).split('/');
-    //                let startIdx: number = idx;
-    //                let resultIdx: number = idx;
-
-    //                for (let i: number = 0; i < rules.length; i++) {
-    //                    let seq: string = rules[i];
-
-    //                    let ruleFn = createRuleFn(seq);
-    //                    let [ checkRes, nextIdx ] = ruleFn(source, startIdx);
-    //                    console.log(checkRes, nextIdx);
-
-    //                    if (!checkRes) {
-    //                        return [ false, -1 ];
-    //                    }
-
-    //                    if (i < rules.length - 2) {
-    //                        startIdx = nextIdx;
-    //                    } 
-
-    //                    resultIdx = nextIdx;
-    //                }
-
-    //                return [ true, resultIdx ];
-    //            }
-    //        }
-
-    //        case 'N': {
-    //            return (source: string, idx: number): t_ruleCheckResult => {
-    //                let rules: string[] = rule.slice(1).split(',');
-
-    //                for (let i: number = 0; i < rules.length; i++) {
-    //                    let seq: string = rules[i];
-
-    //                    if (seq == source.substring(idx, idx + seq.length)) {
-    //                        return [ false, -1 ];
-    //                    }
-    //                }
-
-    //                return [ true, idx + rules[0].length ];
-    //            }
-    //        }
-
-    //        default: {
-    //            return (source: string, idx: number): t_ruleCheckResult => {
-    //                let rules: string[] = rule.split(',');
-
-    //                for (let i: number = 0; i < rules.length; i++) {
-    //                    let seq: string = rules[i];
-
-    //                    if (seq == source.substring(idx, idx + seq.length)) {
-    //                        return [ true, idx + seq.length ]
-    //                    }
-    //                }
-
-    //                return [ false, -1 ]
-    //            }
-    //        }
-    //    }
-    //}
-
-    /**
-     * checks whether ruleList is matching until the end of the paragraphs or 
-     * come across with terminator char
-     *
-     * @ruleList: string[]
-     *      contains rule list defined sequentially
-     *      example:
-     *          ['[', '! ', ']', '(', ')']
-     *
-     * @start: number
-     *      starting index
-     *
-     * @terminators: string[]
-     *     contains chars that will cause an immediate false return 
-     */
-    //let check = (ruleList: string[], start: number, terminators: string[] = [], str: string | null = null): t_match[] => {
-    //    let curPar: string = str || paragraphs[curParIdx];
-    //    let idx: number = start;
-
-    //    let ruleIdx: number = 0;
-    //    let scanning: boolean = false;
-
-    //    let matchBuffer: t_match = { pStart: -1, pEnd: -1 };
-    //    let matchs: t_match[] = [];
-
-    //    if (ruleList.length == 0) {
-    //        return matchs;
-    //    }
-
-    //    let getRuleFn = (): Function => createRuleFn(ruleList[ruleIdx]);
-
-    //    let ruleCheck: Function = getRuleFn();
-
-    //    while (idx < curPar.length) {
-    //        if (terminators.indexOf(curPar[idx]) > -1) {
-    //            return matchs;
-    //        }
-
-    //        let [ checkRes, nextIdx ] = ruleCheck(curPar, idx);
-
-    //        if (checkRes) {
-    //            if (!scanning) {
-    //                matchBuffer.pStart = idx;
-    //                scanning = true;
-    //            } 
-
-    //            if (ruleIdx == ruleList.length - 1) {
-    //                matchBuffer.pEnd = nextIdx - 1;
-    //                matchs.push(matchBuffer);
-    //            }
-
-    //            ruleIdx = ++ruleIdx % ruleList.length;
-    //            ruleCheck = getRuleFn();
-
-    //            idx = nextIdx;
-    //        } else {
-    //            idx++;
-    //        }
-    //    }
-
-    //    return matchs; 
-    //}
-
-    /**
      * remove the given char from the given source string if it exist as a prefix or suffix
      * and return modified string and whether is the char was founded as prefix or suffix
      */
@@ -314,7 +123,7 @@ let parse = (buffer: string): Element[] => {
     }
 
     /**
-     * gets a char arg and executes related match function 
+     * get a type arg and execute related match function 
      * and return result if it is available in matchTable
      */
     let match = (type: string): Function | null => {
@@ -329,9 +138,7 @@ let parse = (buffer: string): Element[] => {
 
             return false;
         }
-        /**
-         * seqRules array must be ordered by precedence
-         */
+
         let operations: t_operations = {
             'bold': (start: number, str: string): t_spottedSeq[] | false => {
                 let sequences: t_seqs = {
@@ -369,15 +176,7 @@ let parse = (buffer: string): Element[] => {
 
                 return spottedSeqs;
             },
-/*
-            'link': (start: number, str: string): t_matchResult => {
-                let matchRules: t_matchRule[] = [
-                    { type: 'LINK_W_TITLE', rule: ['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'] },
-                    { type: 'LINK', rule: ['[', '! ', ']', '(', ')'] }
-                ];
 
-            },
-*/
             'table': (): t_tableMatchResult => {
                 /**
                  * if the current line is not following by an another new line
@@ -491,6 +290,31 @@ let parse = (buffer: string): Element[] => {
 
     let extract = (elementName: string): Function | null => {
         let operations: t_operations = {
+            'strong': (opening: t_spottedSeq, closing: t_spottedSeq, text: string): Element => {
+                let inlineText: string = getBetween(opening, closing, text);
+                let strong: Element = new Element('strong');
+
+                /**
+                 * we apply inline operation recursively for the inlineText of the pattern 
+                 * in order to get sub combined emphasises 
+                 */
+                let strongInline: Element = inline(inlineText);
+
+                strong.appendChild(strongInline);
+
+                return strong;
+            },
+
+            'em': (opening: t_spottedSeq, closing: t_spottedSeq, text: string): Element => {
+                let inlineText: string = getBetween(opening, closing, text);
+                let em: Element = new Element('em');
+                let emInline: Element = inline(inlineText);
+
+                em.appendChild(emInline);
+
+                return em;
+            },
+
             'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element | void => {
                 let table: Element = new Element('table');
                 let thead: Element = new Element('thead');
@@ -605,6 +429,16 @@ let parse = (buffer: string): Element[] => {
         }
     }
 
+    /**
+     * looking for a pattern beginning and then if a pattern beginning can be found
+     * match and extract operations will be applied
+     *
+     * @char: current char of text
+     *
+     * @idx: current idx of text
+     *
+     * @text: the text that match and extract operations will be applied on
+     */
     let operateInline = (char: string, idx: number, text: string): t_operateInlineResult | false => {
         switch(char) {
             case '_':
@@ -617,11 +451,10 @@ let parse = (buffer: string): Element[] => {
                     let matchRes: t_spottedSeq[] | false = matchFn(idx, text);
                     if (!matchRes) return false;
 
-                    let inlineText: string = getBetween(matchRes[0], matchRes[1], text);
-                    let strong: Element = new Element('strong');
-                    let strongInline: Element = inline(inlineText);
+                    let extractFn = extract('strong');
+                    if (!extractFn) return false;
 
-                    strong.appendChild(strongInline);
+                    let strong: Element = extractFn(matchRes[0], matchRes[1], text);
 
                     return [ strong, matchRes[1].idx + matchRes[1].len ];
                 } else {
@@ -631,11 +464,10 @@ let parse = (buffer: string): Element[] => {
                     let matchRes: t_spottedSeq[] | false = matchFn(idx, text);
                     if (!matchRes) return false;
 
-                    let inlineText: string = getBetween(matchRes[0], matchRes[1], text);
-                    let em: Element = new Element('em');
-                    let emInline: Element = inline(inlineText);
+                    let extractFn = extract('em');
+                    if (!extractFn) return false;
 
-                    em.appendChild(emInline);
+                    let em: Element = extractFn(matchRes[0], matchRes[1], text);
 
                     return [ em, matchRes[1].idx + matchRes[1].len ];
                 }
@@ -647,6 +479,13 @@ let parse = (buffer: string): Element[] => {
 
     /**
      * parsing
+     */
+
+    /**
+     * all inline match and extract operations is being applied recursively.
+     * if there is an emphasis pattern opRes will return an Element that contains all combined
+     * sub emphasises. If we have an element we append it to inlineEl and set idx to the next of the
+     * pattern. If opRes returned false we just store the char at inlineTextBuffer and increate the idx.
      */
     let inline = (text: string): Element => {
         let idx: number = 0;
