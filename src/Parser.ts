@@ -24,6 +24,11 @@ let parse = (buffer: string): Element[] => {
     let elements: Element[]         = [];
     let paragraphs: string[]        = buffer.split('\n\n');
     let textBuffer: string          = '';
+    /**
+     * string: refkey
+     * number[]: element indicies that will be transformed into links
+     */
+    //let refs: Map<string, number[]> = new Map();
 
     let paragraphElBuffer: Element;
 
@@ -140,13 +145,26 @@ let parse = (buffer: string): Element[] => {
         }
 
         let operations: t_operations = {
-            'bold': (start: number, str: string): t_spottedSeq[] | false => {
-                let sequences: t_seqs = {
-                    '_': [ ['__', '__'] ],
-                    '*': [ ['**', '**'] ] 
+            'emphasis': (type: string, start: number, str: string): t_spottedSeq[] | false => {
+                let sequences: { [key: string]: t_seqs } = {
+                    'bold': {
+                        '_': [ ['__', '__'] ],
+                        '*': [ ['**', '**'] ] 
+                    },
+
+                    'italic': {
+                        '_': [ ['_', '_'] ],
+                        '*': [ ['*', '*'] ]
+                    },
+
+                    'scratch': {
+                        '~': [ ['~~', '~~'] ]
+                    }
                 }
 
-                let seqs: string[][] = sequences[str[start]] ;
+                if (!sequences.hasOwnProperty(type)) return false;
+
+                let seqs: string[][] = sequences[type][str[start]];
                 let spottedSeqs: t_spottedSeq[] | false = resolveSeqs(seqs, start, str);
 
                 if (!spottedSeqs) return false;
@@ -158,22 +176,108 @@ let parse = (buffer: string): Element[] => {
                 return spottedSeqs;
             },
 
-            'italic': (start: number, str: string): t_spottedSeq[] | false => {
+            'link': (start: number, str: string): t_spottedSeq[] | false => {
                 let sequences: t_seqs = {
-                    '_': [ ['_', '_'] ],
-                    '*': [ ['*', '*'] ]
+                    '[': [ [ '[', '](', ')' ] ]
                 }
 
-                let seqs: string[][] = sequences[str[start]] ;
+                let seqs: string[][] = sequences[str[start]];
                 let spottedSeqs: t_spottedSeq[] | false = resolveSeqs(seqs, start, str);
 
                 if (!spottedSeqs) return false;
+                
+                let urlParts: string = getBetween(spottedSeqs[1], spottedSeqs[2], str);
+                let urlPieces: string[] = urlParts.trim().split(' ');
+                let url: string = urlPieces[0];
+                let title: string = urlPieces.slice(1).join(' ').trim();
 
-                let inlineText: string = getBetween(spottedSeqs[0], spottedSeqs[1], str);
+                if (url.indexOf('\n') != -1) {
+                    return false;
+                }
 
-                if (inlineText[0] == ' ' || inlineText[1] == ' ') return false;
+                if (title.length > 0 &&
+                    ((title[0] != '"' || title[title.length - 1] != '"')  &&
+                    (title[0] != '\'' || title[title.length - 1] != '\''))) {
+                    return false;
+                }
 
                 return spottedSeqs;
+            },
+
+            'ref': (str: string): t_spottedSeq[] | false => {
+                let patternCheck = (start: number, str: string): t_spottedSeq[] | false => {
+                    let scanIdx: number = start;
+
+                    while (scanIdx < str.length) {
+                        let char: string = str[scanIdx];
+
+                        if (char != ' ' && char != '\n') {
+                            if (char == '[') break;
+                            else return false;
+                        }
+
+                        scanIdx++;
+                    }
+
+                    if (scanIdx == str.length) return false;
+
+                    let sequences: t_seqs = {
+                        '[': [ [ '[', ']:' ] ]
+                    }
+
+                    let seqs: string[][] = sequences[str[scanIdx]];
+                    let spottedSeqs: t_spottedSeq[] | false = resolveSeqs(seqs, scanIdx, str);
+
+                    if (!spottedSeqs) return false;
+
+                    return spottedSeqs;
+                }
+
+                let scanUrl = (start: number, str: string): number | false => {
+                    let urlScanIdx: number = start;
+                    let urlStart: number = -1;
+                    let urlEnd: number = -1;
+
+                    while (urlScanIdx < str.length) {
+                        let char: string = str[urlScanIdx];
+
+                        if (urlStart == -1 && char != ' ' && char != '\n') {
+                            urlStart = urlScanIdx;
+                            urlScanIdx++;
+                            continue;
+                        }
+
+                        if (urlStart != -1 && (char == '\n' || urlScanIdx == str.length - 1)) {
+                            urlEnd = char == '\n' ? urlScanIdx : urlScanIdx + 1;
+                            break;
+                        }
+
+                        urlScanIdx++;
+                    }
+
+                    let url: string = str.substring(urlStart, urlEnd);
+                    return url.trim().indexOf(' ') > -1 ?
+                        false : 
+                        urlEnd;
+                }
+
+                let refStart: number = -1;
+                let refEnd: number = 0;
+
+                for(;;) {
+                    let patternRes: t_spottedSeq[] | false = patternCheck(refEnd, str);
+                    if (!patternRes) break;
+
+                    if (refStart == -1) refStart = patternRes[0].idx;
+
+                    let scanRes: number | false = scanUrl(patternRes[1].idx + patternRes[1].len, str);
+                    if (!scanRes) break;
+
+                    refEnd = scanRes;
+                }
+
+                if (refStart == -1 || refEnd == -1) return false;
+                return [ { idx: refStart, len: 1 }, { idx: refEnd, len: 1 } ];
             },
 
             'table': (): t_tableMatchResult => {
@@ -289,29 +393,41 @@ let parse = (buffer: string): Element[] => {
 
     let extract = (elementName: string): Function | null => {
         let operations: t_operations = {
-            'strong': (opening: t_spottedSeq, closing: t_spottedSeq, text: string): Element => {
+            'emphasis': (type: string, opening: t_spottedSeq, closing: t_spottedSeq, text: string): Element => {
                 let inlineText: string = getBetween(opening, closing, text);
-                let strong: Element = new Element('strong');
+                let el: Element = new Element(type);
 
                 /**
                  * we apply inline operation recursively for the inlineText of the pattern 
                  * in order to get sub combined emphasises 
                  */
-                let strongInline: Element = inline(inlineText);
+                let elInline: Element = inline(inlineText);
 
-                strong.appendChild(strongInline);
+                el.appendChild(elInline);
 
-                return strong;
+                return el;
             },
 
-            'em': (opening: t_spottedSeq, closing: t_spottedSeq, text: string): Element => {
-                let inlineText: string = getBetween(opening, closing, text);
-                let em: Element = new Element('em');
-                let emInline: Element = inline(inlineText);
+            'link': (seq: t_spottedSeq[], text: string): Element => {
+                let textPart: string = getBetween(seq[0], seq[1], text);
 
-                em.appendChild(emInline);
+                let urlParts: string = getBetween(seq[1], seq[2], text);
+                let urlPieces: string[] = urlParts.trim().split(' ');
+                let url: string = urlPieces[0];
+                let title: string = urlPieces.slice(1).join(' ').trim();
+                title = title.substring(1, title.length - 1);
 
-                return em;
+                let attributes: t_attribute[] = [];
+
+                attributes.push({ key: 'href', value: url });
+                
+                if (title.length > 0) {
+                    attributes.push({ key: 'title', value: title });
+                }
+
+                let a: Element = new Element('a', attributes, textPart);
+
+                return a;
             },
 
             'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element | void => {
@@ -329,7 +445,14 @@ let parse = (buffer: string): Element[] => {
                 
                 for (let i: number = 0; i < columnCount; i++) {
                     let text: string = headFields[i] || '';
-                    let th: Element = new Element('th', [], text);
+                    let textAlign: t_textAlign = textAligns[i];
+                    let attributes: t_attribute[] = [];
+
+                    if (textAlign.align != 'left') {
+                        attributes.push({ key: 'align', value: textAlign.align });
+                    }
+
+                    let th: Element = new Element('th', attributes, text);
 
                     headtr.appendChild(th);
                 }
@@ -444,32 +567,88 @@ let parse = (buffer: string): Element[] => {
             case '*': {
                 if ((char == '*' && text[idx + 1] == '*') ||
                     (char == '_' && text[idx + 1] == '_')) {
-                    let matchFn = match('bold');
+                    let matchFn = match('emphasis');
                     if (!matchFn) return false;
 
-                    let matchRes: t_spottedSeq[] | false = matchFn(idx, text);
+                    let matchRes: t_spottedSeq[] | false = matchFn('bold', idx, text);
                     if (!matchRes) return false;
 
-                    let extractFn = extract('strong');
+                    let extractFn = extract('emphasis');
                     if (!extractFn) return false;
 
-                    let strong: Element = extractFn(matchRes[0], matchRes[1], text);
+                    let strong: Element = extractFn('strong', matchRes[0], matchRes[1], text);
 
-                    return [ strong, matchRes[1].idx + matchRes[1].len ];
+                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                    return [ strong, patternEnding.idx + patternEnding.len ];
                 } else {
-                    let matchFn = match('italic');
+                    let matchFn = match('emphasis');
                     if (!matchFn) return false;
 
-                    let matchRes: t_spottedSeq[] | false = matchFn(idx, text);
+                    let matchRes: t_spottedSeq[] | false = matchFn('italic', idx, text);
                     if (!matchRes) return false;
 
-                    let extractFn = extract('em');
+                    let extractFn = extract('emphasis');
                     if (!extractFn) return false;
 
-                    let em: Element = extractFn(matchRes[0], matchRes[1], text);
+                    let em: Element = extractFn('em', matchRes[0], matchRes[1], text);
 
-                    return [ em, matchRes[1].idx + matchRes[1].len ];
+                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                    return [ em, patternEnding.idx + patternEnding.len ];
                 }
+            }
+
+            case '~': {
+                if (text[idx + 1] == '~') {
+                    let matchFn = match('emphasis');
+                    if (!matchFn) return false;
+
+                    let matchRes: t_spottedSeq[] | false = matchFn('scratch', idx, text);
+                    if (!matchRes) return false;
+
+                    let extractFn = extract('emphasis');
+                    if (!extractFn) return false;
+
+                    let del: Element = extractFn('del', matchRes[0], matchRes[1], text);
+
+                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                    return [ del, patternEnding.idx + patternEnding.len ];
+                }
+            } break;
+
+            case '[': {
+                let matchFn;
+                let matchRes: t_spottedSeq[] | false;
+                let extractFn;
+
+                matchFn = match('link');
+                if (!matchFn) return false;
+
+                matchRes = matchFn(idx, text);
+
+                if (matchRes) {
+                    extractFn = extract('link');
+                    if (!extractFn) return false;
+
+                    let a: Element = extractFn(matchRes, text);
+                    
+                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                    return [ a, patternEnding.idx + patternEnding.len ]
+                }
+
+                matchFn = match('ref');
+                if (!matchFn) return false;
+
+                matchRes = matchFn(text);
+                console.log(matchRes, 'DFASFASF');
+                if (matchRes) {
+
+                }
+
+                return false;
             }
         }
 
@@ -481,7 +660,7 @@ let parse = (buffer: string): Element[] => {
      */
 
     /**
-     * all inline match and extract operations is being applied recursively.
+     * all inline match and extract operations are being applied recursively.
      * if there is an emphasis pattern opRes will return an Element that contains all combined
      * sub emphasises. If we have an element we append it to inlineEl and set idx to the next of the
      * pattern. If opRes returned false we just store the char at inlineTextBuffer and increate the idx.
@@ -545,8 +724,8 @@ let parse = (buffer: string): Element[] => {
         curParIdx++;
     }
 
-   // let t = check(['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'], index);
-   // console.log(t);
+    // let t = check(['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'], index);
+    // console.log(t);
     //
 
     elements.forEach((e: Element) => console.log(e.emitHtml()));
