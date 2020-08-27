@@ -15,8 +15,11 @@ let parse = (buffer: string): Element[] => {
     /**
      * t_operateInlineResult          Element, idx
      */
-    type t_operateInlineResult      = [ Element, number ];
+    type t_operateInlineResult      = [ Element | null, number ];
     type t_spottedSeq               = { idx: number, len: number };
+
+    type t_reflink                  = { key: string, url: string };
+    //type t_reflinkel                = { key: string, elIdx: number };
 
     /**
      * variables
@@ -26,9 +29,10 @@ let parse = (buffer: string): Element[] => {
     let textBuffer: string          = '';
     /**
      * string: refkey
-     * number[]: element indicies that will be transformed into links
+     * string: url
      */
-    //let refs: Map<string, number[]> = new Map();
+    let refMap: Map<string, string> = new Map();
+    //let refsEl: t_reflinkel[]         = [];
 
     let paragraphElBuffer: Element;
 
@@ -204,7 +208,24 @@ let parse = (buffer: string): Element[] => {
                 return spottedSeqs;
             },
 
-            'ref': (str: string): t_spottedSeq[] | false => {
+            'ref': (start: number, str: string): t_spottedSeq[] | false => {
+                /**
+                 * check we are at the beginning of the paragraph
+                 */
+                let backwardScanIdx: number = start - 1;
+
+                while (backwardScanIdx > 0) {
+                    if (str[backwardScanIdx] != ' ' && str[backwardScanIdx] != '\n' ) {
+                        return false;
+                    } 
+
+                    backwardScanIdx--;
+                }
+
+                /**
+                 * check the first non space char is a left square bracket if it is not
+                 * it cant be a ref link. Then check the right squarebracket and semicolon
+                 */
                 let patternCheck = (start: number, str: string): t_spottedSeq[] | false => {
                     let scanIdx: number = start;
 
@@ -219,6 +240,9 @@ let parse = (buffer: string): Element[] => {
                         scanIdx++;
                     }
 
+                    /**
+                     * if we exceed the limit and cant find a left square bracket just return false
+                     */
                     if (scanIdx == str.length) return false;
 
                     let sequences: t_seqs = {
@@ -233,6 +257,9 @@ let parse = (buffer: string): Element[] => {
                     return spottedSeqs;
                 }
 
+                /**
+                 * scan the url part to determine it is whether correctly defined
+                 */
                 let scanUrl = (start: number, str: string): number | false => {
                     let urlScanIdx: number = start;
                     let urlStart: number = -1;
@@ -241,43 +268,64 @@ let parse = (buffer: string): Element[] => {
                     while (urlScanIdx < str.length) {
                         let char: string = str[urlScanIdx];
 
+                        /**
+                         * scan until come across with a non space char
+                         */
                         if (urlStart == -1 && char != ' ' && char != '\n') {
                             urlStart = urlScanIdx;
                             urlScanIdx++;
                             continue;
                         }
 
+                        /**
+                         * then get the whole piece until the end of the line
+                         */
                         if (urlStart != -1 && (char == '\n' || urlScanIdx == str.length - 1)) {
-                            urlEnd = char == '\n' ? urlScanIdx : urlScanIdx + 1;
+                            urlEnd = urlScanIdx + 1;
                             break;
                         }
 
                         urlScanIdx++;
                     }
 
+                    /**
+                     * check the url string in a single piece 
+                     */
                     let url: string = str.substring(urlStart, urlEnd);
-                    return url.trim().indexOf(' ') > -1 ?
+                    return url.trim().indexOf(' ') != -1 ?
                         false : 
                         urlEnd;
                 }
 
+                let piecePoints: t_spottedSeq[] = [];
                 let refStart: number = -1;
                 let refEnd: number = 0;
 
+                /**
+                 * figure out all contiguous ref link patterns
+                 */
                 for(;;) {
                     let patternRes: t_spottedSeq[] | false = patternCheck(refEnd, str);
                     if (!patternRes) break;
 
-                    if (refStart == -1) refStart = patternRes[0].idx;
+                    refStart = patternRes[0].idx;
 
                     let scanRes: number | false = scanUrl(patternRes[1].idx + patternRes[1].len, str);
                     if (!scanRes) break;
 
+                    /**
+                     * check pattern and url part and then start over again from the end of the detected
+                     * ref link pattern to determine other patterns
+                     */
                     refEnd = scanRes;
+
+                    piecePoints.push({ idx: refStart, len: 1 });
+                    piecePoints.push({ idx: refEnd, len: 1 });
                 }
 
                 if (refStart == -1 || refEnd == -1) return false;
-                return [ { idx: refStart, len: 1 }, { idx: refEnd, len: 1 } ];
+
+                return piecePoints;
             },
 
             'table': (): t_tableMatchResult => {
@@ -428,6 +476,20 @@ let parse = (buffer: string): Element[] => {
                 let a: Element = new Element('a', attributes, textPart);
 
                 return a;
+            },
+
+            'reflink': (seq: t_spottedSeq[], text: string): t_reflink[] => {
+                let reflinks: t_reflink[] = [];
+
+                for (let i: number = 0; i < seq.length; i += 2) {
+                    let refStrPieces: string[] = text.substring(seq[i].idx, seq[i+1].idx).split(':');
+                    let key: string = refStrPieces[0].substring(1, refStrPieces[0].length - 1).trim();
+                    let url: string = refStrPieces.splice(1).join(':').trim();
+
+                    reflinks.push({ key, url })
+                }
+
+                return reflinks;
             },
 
             'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element | void => {
@@ -642,10 +704,24 @@ let parse = (buffer: string): Element[] => {
                 matchFn = match('ref');
                 if (!matchFn) return false;
 
-                matchRes = matchFn(text);
-                console.log(matchRes, 'DFASFASF');
-                if (matchRes) {
+                matchRes = matchFn(idx, text);
 
+                if (matchRes) {
+                    extractFn = extract('reflink');
+                    if (!extractFn) return false;
+
+                    let refs: t_reflink[] = extractFn(matchRes, text);
+
+                    for (let i: number = 0; i < refs.length; i++) {
+                        let { key, url } = refs[i];
+
+                        if (!refMap.get(key)) {
+                            refMap.set(key, url);
+                        }
+                    }
+
+                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+                    return [ null, patternEnding.idx ];
                 }
 
                 return false;
@@ -677,7 +753,7 @@ let parse = (buffer: string): Element[] => {
                 inlineTextBuffer = '';
 
                 let [ el, ridx ] = opRes;
-                inlineEl.appendChild(el);
+                if (el) inlineEl.appendChild(el);
                 idx = ridx;
                 continue;
             }

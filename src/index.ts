@@ -27,7 +27,8 @@ Strikethrough uses two tildes. ~~Scratch this.~~
 //
 
 let str: string = `
-[1]: http://slashdot.org 
-[arbitrary case-insensitive reference text]: asfsafasf
+
+[1]: http://slashdot.org
+[arbitrary case-insensitive reference text]: asfsafasfAAAAAAA
 `;
 parse(str);
