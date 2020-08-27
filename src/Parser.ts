@@ -18,7 +18,7 @@ let parse = (buffer: string): Element[] => {
     type t_operateInlineResult      = [ Element | null, number ];
     type t_spottedSeq               = { idx: number, len: number };
 
-    type t_reflink                  = { key: string, url: string };
+    type t_reflink                  = { key: string, url: string, title: string };
     //type t_reflinkel                = { key: string, elIdx: number };
 
     /**
@@ -29,9 +29,9 @@ let parse = (buffer: string): Element[] => {
     let textBuffer: string          = '';
     /**
      * string: refkey
-     * string: url
+     * obj: url, title
      */
-    let refMap: Map<string, string> = new Map();
+    let refMap: Map<string, { url: string, title: string }> = new Map();
     //let refsEl: t_reflinkel[]         = [];
 
     let paragraphElBuffer: Element;
@@ -148,6 +148,16 @@ let parse = (buffer: string): Element[] => {
             return false;
         }
 
+        let isThisTitle = (title: string): boolean => {
+            if (title.length > 0 &&
+                ((title[0] != '"' || title[title.length - 1] != '"')  &&
+                (title[0] != '\'' || title[title.length - 1] != '\''))) {
+                return false;
+            }
+
+            return true;
+        }
+
         let operations: t_operations = {
             'emphasis': (type: string, start: number, str: string): t_spottedSeq[] | false => {
                 let sequences: { [key: string]: t_seqs } = {
@@ -199,11 +209,7 @@ let parse = (buffer: string): Element[] => {
                     return false;
                 }
 
-                if (title.length > 0 &&
-                    ((title[0] != '"' || title[title.length - 1] != '"')  &&
-                    (title[0] != '\'' || title[title.length - 1] != '\''))) {
-                    return false;
-                }
+                if (!isThisTitle(title)) return false;
 
                 return spottedSeqs;
             },
@@ -288,13 +294,14 @@ let parse = (buffer: string): Element[] => {
                         urlScanIdx++;
                     }
 
-                    /**
-                     * check the url string in a single piece 
-                     */
-                    let url: string = str.substring(urlStart, urlEnd);
-                    return url.trim().indexOf(' ') != -1 ?
-                        false : 
-                        urlEnd;
+                    if (urlStart == -1 && urlEnd == -1) return false;
+
+                    let urlPieces: string[] = str.substring(urlStart, urlEnd).split(' ');
+                    let title: string = urlPieces.slice(1).join(' ').trim();
+
+                    if (!isThisTitle(title)) return false;
+
+                    return urlEnd;
                 }
 
                 let piecePoints: t_spottedSeq[] = [];
@@ -478,15 +485,19 @@ let parse = (buffer: string): Element[] => {
                 return a;
             },
 
-            'reflink': (seq: t_spottedSeq[], text: string): t_reflink[] => {
+            'ref': (seq: t_spottedSeq[], text: string): t_reflink[] => {
                 let reflinks: t_reflink[] = [];
 
                 for (let i: number = 0; i < seq.length; i += 2) {
                     let refStrPieces: string[] = text.substring(seq[i].idx, seq[i+1].idx).split(':');
                     let key: string = refStrPieces[0].substring(1, refStrPieces[0].length - 1).trim();
-                    let url: string = refStrPieces.splice(1).join(':').trim();
 
-                    reflinks.push({ key, url })
+                    let urlPieces: string[] = refStrPieces.slice(1).join(':').trim().split(' ');
+                    let url: string = urlPieces[0].trim();
+                    let title: string = urlPieces.slice(1).join(' ').trim();
+                    title = title.substring(1, title.length - 1);
+
+                    reflinks.push({ key, url, title });
                 }
 
                 return reflinks;
@@ -707,20 +718,21 @@ let parse = (buffer: string): Element[] => {
                 matchRes = matchFn(idx, text);
 
                 if (matchRes) {
-                    extractFn = extract('reflink');
+                    extractFn = extract('ref');
                     if (!extractFn) return false;
 
                     let refs: t_reflink[] = extractFn(matchRes, text);
 
                     for (let i: number = 0; i < refs.length; i++) {
-                        let { key, url } = refs[i];
+                        let { key, url, title } = refs[i];
 
                         if (!refMap.get(key)) {
-                            refMap.set(key, url);
+                            refMap.set(key, { url, title });
                         }
                     }
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+                    console.log(refMap);
                     return [ null, patternEnding.idx ];
                 }
 
