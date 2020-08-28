@@ -1,7 +1,6 @@
 import parse from './Parser'
 
-let str: string = `
-Emphasis, aka italics, with *asterisks* or _underscores_.
+let str: string = `Emphasis, aka italics, with *asterisks* or _underscores_.
 
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
 

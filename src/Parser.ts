@@ -287,7 +287,7 @@ let parse = (buffer: string): Element[] => {
                          * then get the whole piece until the end of the line
                          */
                         if (urlStart != -1 && (char == '\n' || urlScanIdx == str.length - 1)) {
-                            urlEnd = char == '\n' ? urlScanIdx + 2 : urlScanIdx + 1;
+                            urlEnd = urlScanIdx + 1;
                             break;
                         }
 
@@ -648,7 +648,6 @@ let parse = (buffer: string): Element[] => {
         switch (char) {
             case '\n': {
                 curLineIdx++;
-                textBuffer += '\n';
                 return;
             }
 
@@ -682,6 +681,10 @@ let parse = (buffer: string): Element[] => {
      */
     let operateInline = (char: string, idx: number, text: string): t_operateInlineResult | false => {
         switch(char) {
+            case '\n': {
+                return [ new Element('', [], '<br>'), idx + 1 ];
+            }
+
             case '_':
             case '*': {
                 if ((char == '*' && text[idx + 1] == '*') ||
