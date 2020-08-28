@@ -24,9 +24,11 @@
   "license": "WTFPL",
   "devDependencies": {
     "@types/node": "^14.0.27",
+    "@types/uuid": "^8.3.0",
     "typescript": "^3.9.7"
   },
   "dependencies": {
-    "highlight.js": "^10.1.2"
+    "highlight.js": "^10.1.2",
+    "uuid": "^8.3.0"
   }
 }

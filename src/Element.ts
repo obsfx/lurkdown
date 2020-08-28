@@ -1,15 +1,19 @@
+import { v4 as uuidv4 } from 'uuid';
+
 export type t_attribute = {
     key: string,
     value: string
 }
 
 export default class Element {
+    id: string;
     tag: string;
     attributes: t_attribute[];
     text: string;
     childs: Element[];
 
     constructor(tag: string, attributes: t_attribute[] = [], text: string = '') {
+        this.id = uuidv4();
         this.tag = tag;
         this.attributes = attributes;
         this.text = text;

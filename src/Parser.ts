@@ -19,7 +19,8 @@ let parse = (buffer: string): Element[] => {
     type t_spottedSeq               = { idx: number, len: number };
 
     type t_reflink                  = { key: string, url: string, title: string };
-    //type t_reflinkel                = { key: string, elIdx: number };
+    type t_reflinkel                = { elid: string, key: string, str: string | null };
+    type t_reflinkeltemp            = { key: string, str: string | null };
 
     /**
      * variables
@@ -32,7 +33,7 @@ let parse = (buffer: string): Element[] => {
      * obj: url, title
      */
     let refMap: Map<string, { url: string, title: string }> = new Map();
-    //let refsEl: t_reflinkel[]         = [];
+    let refsEl: t_reflinkel[]         = [];
 
     let paragraphElBuffer: Element;
 
@@ -287,7 +288,7 @@ let parse = (buffer: string): Element[] => {
                          * then get the whole piece until the end of the line
                          */
                         if (urlStart != -1 && (char == '\n' || urlScanIdx == str.length - 1)) {
-                            urlEnd = urlScanIdx + 1;
+                            urlEnd = char == '\n' ? urlScanIdx + 2 : urlScanIdx + 1;
                             break;
                         }
 
@@ -335,6 +336,20 @@ let parse = (buffer: string): Element[] => {
                 return piecePoints;
             },
 
+            'reflink': (start: number, str: string): t_spottedSeq[] | false => {
+                let sequences: t_seqs = {
+                    '[': [ 
+                        [ '[', '][', ']' ],
+                        [ '[', ']' ]
+                    ],
+                }
+
+                let seqs: string[][] = sequences[str[start]];
+                let spottedSeqs: t_spottedSeq[] | false = resolveSeqs(seqs, start, str);
+
+                return spottedSeqs;
+            },
+
             'table': (): t_tableMatchResult => {
                 /**
                  * if the current line is not following by an another new line
@@ -345,7 +360,7 @@ let parse = (buffer: string): Element[] => {
                 }
 
                 /**
-                 * check the given string is consist of given char
+                 * check the given string whether is consist of given char
                  */
                 let isConsistOf = (source: string, char: string): boolean => {
                     let charCount: number = source.split('').filter((c: string) => c == char).length;
@@ -374,7 +389,7 @@ let parse = (buffer: string): Element[] => {
 
                 /**
                  * split and determine the dash pattern is valid then
-                 * check the dash patterns contain semicolons and then
+                 * check the dash patterns to determine they contain semicolons and then
                  * return the result
                  */
                 type t_nextLineDashesResult = { 
@@ -403,7 +418,7 @@ let parse = (buffer: string): Element[] => {
                 }
 
                 /**
-                 * check the dashes that are in column limit range are valid or not
+                 * check the dashes that are in column to determine limit range are valid or not
                  */
                 let textAligns: t_textAlign[] = []
                 for (let i: number = 0; i < columns; i++) {
@@ -420,8 +435,8 @@ let parse = (buffer: string): Element[] => {
                 }
 
                 /**
-                 * starting to check other rows that hold 
-                 * the content
+                 * starting to check other rows to determine they are
+                 * whether valid to be part of the table
                  */
                 let rowIdx: number = curLineIdx + 2;
                 let rowRange: number = 0;
@@ -453,7 +468,7 @@ let parse = (buffer: string): Element[] => {
                 let el: Element = new Element(type);
 
                 /**
-                 * we apply inline operation recursively for the inlineText of the pattern 
+                 * we apply inline operation recursively for the inlineText
                  * in order to get sub combined emphasises 
                  */
                 let elInline: Element = inline(inlineText);
@@ -490,7 +505,7 @@ let parse = (buffer: string): Element[] => {
 
                 for (let i: number = 0; i < seq.length; i += 2) {
                     let refStrPieces: string[] = text.substring(seq[i].idx, seq[i+1].idx).split(':');
-                    let key: string = refStrPieces[0].substring(1, refStrPieces[0].length - 1).trim();
+                    let key: string = refStrPieces[0].substring(1, refStrPieces[0].length - 1).trim().toLowerCase();
 
                     let urlPieces: string[] = refStrPieces.slice(1).join(':').trim().split(' ');
                     let url: string = urlPieces[0].trim();
@@ -501,6 +516,24 @@ let parse = (buffer: string): Element[] => {
                 }
 
                 return reflinks;
+            },
+
+            'reflink': (seq: t_spottedSeq[], text: string): [ Element, t_reflinkeltemp ] => {
+                let str: string | null = seq.length == 3 ? '' : null;
+                let keySpots: [ t_spottedSeq, t_spottedSeq ] = seq.length == 3 ? 
+                    [ seq[1], seq[2] ] :
+                    [ seq[0], seq[1] ];
+
+                let key: string = text.substring(keySpots[0].idx + keySpots[0].len, keySpots[1].idx).toLowerCase();
+
+                if (str != null) {
+                    str = text.substring(seq[0].idx + seq[0].len, seq[1].idx);
+                }
+
+                let elText: string = text.substring(seq[0].idx, seq[seq.length - 1].idx + seq[seq.length - 1].len);
+                let el: Element = new Element('', [], elText);
+
+                return [ el, { key, str } ]
             },
 
             'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element | void => {
@@ -535,7 +568,7 @@ let parse = (buffer: string): Element[] => {
 
                 /**
                  * if there is no additional row that is related to our table
-                 * forward the index to the next line beginning
+                 * forward the index to the beginning of the next line
                  */
                 if (rowRange == 0) {
                     if (curLineIdx + 2 < lineStartIdxs[curParIdx].length) {
@@ -549,7 +582,7 @@ let parse = (buffer: string): Element[] => {
 
                 /**
                  * split the row strings and extract the text to 
-                 * element objects
+                 * create element objects
                  */
                 let tbody: Element = new Element('tbody');
                 let rowIdx: number = curLineIdx + 2;
@@ -732,8 +765,25 @@ let parse = (buffer: string): Element[] => {
                     }
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
-                    console.log(refMap);
                     return [ null, patternEnding.idx ];
+                }
+
+                matchFn = match('reflink');
+                if (!matchFn) return false;
+
+                matchRes = matchFn(idx, text);
+
+                if (matchRes) {
+                    extractFn = extract('reflink');
+                    if (!extractFn) return false;
+
+                    let [ el, reflinkeltemp ] = extractFn(matchRes, text);
+
+                    refsEl.push({ elid: el.id, key: reflinkeltemp.key, str: reflinkeltemp.str });
+
+                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                    return [ el, patternEnding.idx + patternEnding.len ];
                 }
 
                 return false;
@@ -758,11 +808,18 @@ let parse = (buffer: string): Element[] => {
         let inlineTextBuffer: string = '';
         let inlineEl: Element = new Element('');
 
-        while (idx < text.length) {
-            let opRes: t_operateInlineResult | false = operateInline(text[idx], idx, text);
-            if (opRes) {
+        let pushInlineText = (): void => {
+            if (inlineTextBuffer != '') {
                 inlineEl.appendChild(new Element('', [], inlineTextBuffer));
                 inlineTextBuffer = '';
+            }
+        }
+
+        while (idx < text.length) {
+            let opRes: t_operateInlineResult | false = operateInline(text[idx], idx, text);
+
+            if (opRes) {
+                pushInlineText();
 
                 let [ el, ridx ] = opRes;
                 if (el) inlineEl.appendChild(el);
@@ -774,13 +831,17 @@ let parse = (buffer: string): Element[] => {
             idx++;
         }
 
-        inlineEl.appendChild(new Element('', [], inlineTextBuffer));
+        pushInlineText();
         return inlineEl;
     }
 
     let pushTextEl = (): void => {
-        paragraphElBuffer.appendChild(inline(textBuffer));
+        let el: Element = inline(textBuffer);
         textBuffer = '';
+
+        if (el.tag != '' || el.text != '' || el.childs.length != 0) {
+            paragraphElBuffer.appendChild(el);
+        }
     }
 
     while (curParIdx < paragraphs.length) {
@@ -805,11 +866,49 @@ let parse = (buffer: string): Element[] => {
             pushTextEl();
         }
 
-        elements.push(paragraphElBuffer);
+        if (paragraphElBuffer.childs.length != 0) {
+            elements.push(paragraphElBuffer);
+        }
 
         index = 0;
         curLineIdx = 0;
         curParIdx++;
+    }
+
+    /**
+     * resolve reflinks
+     */
+
+    let resolveRefLink = (el: Element, reflinkel: t_reflinkel): boolean => {
+        let ref: { url: string, title: string } | undefined = refMap.get(reflinkel.key);
+
+        if (el.id == reflinkel.elid && ref) {
+            el.tag = 'a';
+            el.text = reflinkel.str || '';
+            el.attributes = [ 
+                { key: 'href', value: ref.url }, 
+                { key: 'title', value: ref.title } 
+            ];
+
+            return true;
+        }
+
+        for (let i: number = 0; i < el.childs.length; i++) {
+            let childEl: Element = el.childs[i];
+
+            if (resolveRefLink(childEl, reflinkel)) return true;
+        }
+
+        return false;
+    }
+
+    for (let i: number = 0; i < refsEl.length; i++) {
+        let refel: t_reflinkel = refsEl[i];
+
+        for (let j: number = 0; j < elements.length; j++) {
+            let el: Element = elements[j];
+            resolveRefLink(el, refel);
+        }
     }
 
     // let t = check(['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'], index);
