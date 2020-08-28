@@ -19,8 +19,7 @@ let parse = (buffer: string): Element[] => {
     type t_spottedSeq               = { idx: number, len: number };
 
     type t_reflink                  = { key: string, url: string, title: string };
-    type t_reflinkel                = { elid: string, key: string, str: string | null };
-    type t_reflinkeltemp            = { key: string, str: string | null };
+    type t_reflinkSpec              = { elid: string, key: string, keyEl: Element, strEl: Element | null };
 
     /**
      * variables
@@ -33,7 +32,7 @@ let parse = (buffer: string): Element[] => {
      * obj: url, title
      */
     let refMap: Map<string, { url: string, title: string }> = new Map();
-    let refsEl: t_reflinkel[]         = [];
+    let refsEl: t_reflinkSpec[]         = [];
 
     let paragraphElBuffer: Element;
 
@@ -518,8 +517,12 @@ let parse = (buffer: string): Element[] => {
                 return reflinks;
             },
 
-            'reflink': (seq: t_spottedSeq[], text: string): [ Element, t_reflinkeltemp ] => {
+            'reflink': (seq: t_spottedSeq[], text: string): [ Element, t_reflinkSpec ] => {
+                let el: Element = new Element('');
+                let strEl: Element | null = null;
+
                 let str: string | null = seq.length == 3 ? '' : null;
+
                 let keySpots: [ t_spottedSeq, t_spottedSeq ] = seq.length == 3 ? 
                     [ seq[1], seq[2] ] :
                     [ seq[0], seq[1] ];
@@ -527,13 +530,23 @@ let parse = (buffer: string): Element[] => {
                 let key: string = text.substring(keySpots[0].idx + keySpots[0].len, keySpots[1].idx).toLowerCase();
 
                 if (str != null) {
+                    el.appendChild(new Element('', [], '['));
+
                     str = text.substring(seq[0].idx + seq[0].len, seq[1].idx);
+                    strEl = inline(str);
+                    el.appendChild(strEl);
+
+                    el.appendChild(new Element('', [], ']'));
                 }
 
-                let elText: string = text.substring(seq[0].idx, seq[seq.length - 1].idx + seq[seq.length - 1].len);
-                let el: Element = new Element('', [], elText);
+                el.appendChild(new Element('', [], '['));
 
-                return [ el, { key, str } ]
+                let keyEl: Element = inline(key);
+                el.appendChild(keyEl);
+
+                el.appendChild(new Element('', [], ']'));
+
+                return [ el, { elid: el.id, key, keyEl, strEl } ]
             },
 
             'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element | void => {
@@ -777,13 +790,13 @@ let parse = (buffer: string): Element[] => {
                     extractFn = extract('reflink');
                     if (!extractFn) return false;
 
-                    let [ el, reflinkeltemp ] = extractFn(matchRes, text);
+                    let extractRes: [ Element, t_reflinkSpec ] = extractFn(matchRes, text);
 
-                    refsEl.push({ elid: el.id, key: reflinkeltemp.key, str: reflinkeltemp.str });
+                    refsEl.push(extractRes[1]);
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
-                    return [ el, patternEnding.idx + patternEnding.len ];
+                    return [ extractRes[0], patternEnding.idx + patternEnding.len ];
                 }
 
                 return false;
@@ -879,12 +892,12 @@ let parse = (buffer: string): Element[] => {
      * resolve reflinks
      */
 
-    let resolveRefLink = (el: Element, reflinkel: t_reflinkel): boolean => {
+    let resolveRefLink = (el: Element, reflinkel: t_reflinkSpec): boolean => {
         let ref: { url: string, title: string } | undefined = refMap.get(reflinkel.key);
 
         if (el.id == reflinkel.elid && ref) {
             el.tag = 'a';
-            el.text = reflinkel.str || '';
+            el.childs = [ reflinkel.strEl || reflinkel.keyEl ];
             el.attributes = [ 
                 { key: 'href', value: ref.url }, 
                 { key: 'title', value: ref.title } 
@@ -903,7 +916,7 @@ let parse = (buffer: string): Element[] => {
     }
 
     for (let i: number = 0; i < refsEl.length; i++) {
-        let refel: t_reflinkel = refsEl[i];
+        let refel: t_reflinkSpec = refsEl[i];
 
         for (let j: number = 0; j < elements.length; j++) {
             let el: Element = elements[j];
