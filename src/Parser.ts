@@ -4,37 +4,38 @@ let parse = (buffer: string): Element[] => {
     /**
      * types 
      */
-    type t_operations               = { [key: string]: Function };
-    type t_seqs                     = { [key: string]: string[][] };
-    type t_textAlign                = { align: 'left' | 'right' | 'center' };
+    type t_operations = { [key: string]: Function };
+    type t_seqs = { [key: string]: string[][] };
+    type t_textAlign = { align: 'left' | 'right' | 'center' };
     /**
      * t_tableMatchResult              checkResult, rowsRange, columnCount, textAligns
      */
-    type t_tableMatchResult         = [ boolean, number, number, t_textAlign[] | null ];
-    type t_extractFixesResult       = { source: string, left: boolean, right: boolean };
+    type t_tableMatchResult = [ boolean, number, number, t_textAlign[] | null ];
+    type t_extractFixesResult = { source: string, left: boolean, right: boolean };
     /**
      * t_operateInlineResult          Element, idx
      */
-    type t_operateInlineResult      = [ Element | null, number ];
-    type t_spottedSeq               = { idx: number, len: number };
+    type t_operateResult = [ Element | null, number ];
+    type t_spottedSeq = { idx: number, len: number };
 
-    type t_reflink                  = { key: string, url: string, title: string };
-    type t_reflinkSpec              = { elid: string, key: string, keyEl: Element, strEl: Element | null };
+    type t_reflink = { key: string, url: string, title: string };
+    type t_reflinkSpec = { elid: string, key: string, keyEl: Element, strEl: Element | null };
+
+    type t_lastListItemBuffer = { elid: string, indentation: number };
 
     /**
      * variables
      */
-    let elements: Element[]         = [];
-    let paragraphs: string[]        = buffer.split('\n\n');
-    let textBuffer: string          = '';
+    let elements: Element[] = [];
+    let paragraphs: string[] = buffer.split('\n\n');
     /**
      * string: refkey
      * obj: url, title
      */
     let refMap: Map<string, { url: string, title: string }> = new Map();
-    let refsEl: t_reflinkSpec[]         = [];
+    let refsEl: t_reflinkSpec[] = [];
 
-    let paragraphElBuffer: Element;
+    let lastListItemBuffer: t_lastListItemBuffer | null = null;
 
     let getLineStartIdxs = (paragraphs: string[]): number[][] => {
         let arr: number[][] = [];
@@ -53,15 +54,13 @@ let parse = (buffer: string): Element[] => {
         return arr;
     }
 
-    let lineStartIdxs: number[][]   = getLineStartIdxs(paragraphs);
-    let curLineIdx: number          = 0;
+    let lineStartIdxs: number[][] = getLineStartIdxs(paragraphs);
+    let curLineIdx: number = 0;
 
     /**
      * curParIdx: current paragraph index
-     * index: index that is used at inside of paragraph
      */
-    let curParIdx: number           = 0;
-    let index: number               = 0;
+    let curParIdx: number = 0;
     /**
      * helper functions
      */
@@ -81,21 +80,21 @@ let parse = (buffer: string): Element[] => {
         return str;
     }
 
-    let getBetween = (opening: t_spottedSeq, closing: t_spottedSeq, text: string) => (
-        text.substring(opening.idx + opening.len, closing.idx)
+    let getBetween = (opening: t_spottedSeq, closing: t_spottedSeq, context: string) => (
+        context.substring(opening.idx + opening.len, closing.idx)
     );
 
-    let checkSeq = (seq: string[], start: number, text: string, terminators: string[] = []): t_spottedSeq[] | false => {
+    let checkSeq = (seq: string[], start: number, context: string, terminators: string[] = []): t_spottedSeq[] | false => {
         if (seq.length == 0) return false;
 
         let idx: number = start;
         let seqIdx: number = 0;
         let spottedSeqs: t_spottedSeq[] = [];
 
-        while (idx < text.length && seqIdx < seq.length) {
+        while (idx < context.length && seqIdx < seq.length) {
             if (terminators.indexOf(seq[seqIdx]) > -1) return false;
 
-            if (seq[seqIdx] == text.substring(idx, idx + seq[seqIdx].length)) {
+            if (seq[seqIdx] == context.substring(idx, idx + seq[seqIdx].length)) {
                 spottedSeqs.push({ idx: idx, len: seq[seqIdx].length });
                 idx = idx + seq[seqIdx].length;
                 seqIdx++;
@@ -135,7 +134,7 @@ let parse = (buffer: string): Element[] => {
      * get a type arg and execute related match function 
      * and return result if it is available in matchTable
      */
-    let match = (type: string): Function | null => {
+    let match = (type: string): Function => {
         let resolveSeqs = (seqs: string[][], start: number, str: string, terminators: string[] = []): t_spottedSeq[] | false => {
             for (let i: number = 0; i < seqs.length; i++) {
                 let checkSeqRes: t_spottedSeq[] | false = checkSeq(seqs[i], start, str, terminators);
@@ -349,6 +348,63 @@ let parse = (buffer: string): Element[] => {
                 return spottedSeqs;
             },
 
+            'orderedlistitem': (start: number, str: string): [ t_spottedSeq[], number ] | false => {
+                let isThisAnOrderedListHead = (idx: number, str: string): boolean => {
+                    if (idx >= str.length - 2 ||
+                        (str[idx + 1] != '.' && str[idx + 1] != ')') ||
+                        (str[idx + 2] != ' ' && str[idx + 2] != '\n')) {
+                        return false;
+                    }
+
+                    let wsScanIdx: number = idx - 1;
+
+                    while (wsScanIdx > -1 && str[wsScanIdx] != '\n') {
+                        let char: string = str[wsScanIdx];
+
+                        if (char != ' ') return false;
+
+                        wsScanIdx--;
+                    }
+
+                    return true;
+                }
+
+                if (!isThisAnOrderedListHead(start, str)) return false;
+
+                let spottedSeqs: t_spottedSeq[] = [];
+                spottedSeqs.push({ idx: start, len: 1 });
+
+                let scanIdx: number = start + 3;
+
+                let firstCharIdx: number | null = null;
+                let indentation: number = 0;
+
+                while (scanIdx < str.length) {
+                    if (!firstCharIdx && str[scanIdx] != ' ' && str[scanIdx] != '\n') {
+                        firstCharIdx = scanIdx;
+                    }
+
+                    if (isThisAnOrderedListHead(scanIdx, str) || scanIdx == str.length - 1) {
+                        spottedSeqs.push({ idx: scanIdx, len: 1 });
+                        break;
+                    }
+
+                    scanIdx++;
+                }
+
+                if (firstCharIdx != null) {
+                    while (firstCharIdx > -1 && str[firstCharIdx - 1] != '\n') {
+                        indentation++;
+                        firstCharIdx--;
+                    }
+                } else {
+                    indentation = start + 3;
+                }
+
+                console.log(str.substring(spottedSeqs[0].idx, spottedSeqs[1].idx))
+                return [ spottedSeqs, indentation ];
+            },
+
             'table': (): t_tableMatchResult => {
                 /**
                  * if the current line is not following by an another new line
@@ -455,15 +511,17 @@ let parse = (buffer: string): Element[] => {
             }
         }
 
-        return operations.hasOwnProperty(type) ? 
-            operations[type] :
-            null;
+        if (operations.hasOwnProperty(type)) {
+            return operations[type];
+        } else {
+            throw Error(`${type} operation couldn't find in match methods`);
+        }
     }
 
-    let extract = (elementName: string): Function | null => {
+    let extract = (elementName: string): Function => {
         let operations: t_operations = {
-            'emphasis': (type: string, opening: t_spottedSeq, closing: t_spottedSeq, text: string): Element => {
-                let inlineText: string = getBetween(opening, closing, text);
+            'emphasis': (type: string, opening: t_spottedSeq, closing: t_spottedSeq, context: string): Element => {
+                let inlineText: string = getBetween(opening, closing, context);
                 let el: Element = new Element(type);
 
                 /**
@@ -477,10 +535,10 @@ let parse = (buffer: string): Element[] => {
                 return el;
             },
 
-            'link': (seq: t_spottedSeq[], text: string): Element => {
-                let textPart: string = getBetween(seq[0], seq[1], text);
+            'link': (seq: t_spottedSeq[], context: string): Element => {
+                let textPart: string = getBetween(seq[0], seq[1], context);
 
-                let urlParts: string = getBetween(seq[1], seq[2], text);
+                let urlParts: string = getBetween(seq[1], seq[2], context);
                 let urlPieces: string[] = urlParts.trim().split(' ');
                 let url: string = urlPieces[0];
                 let title: string = urlPieces.slice(1).join(' ').trim();
@@ -499,11 +557,11 @@ let parse = (buffer: string): Element[] => {
                 return a;
             },
 
-            'ref': (seq: t_spottedSeq[], text: string): t_reflink[] => {
+            'ref': (seq: t_spottedSeq[], context: string): t_reflink[] => {
                 let reflinks: t_reflink[] = [];
 
                 for (let i: number = 0; i < seq.length; i += 2) {
-                    let refStrPieces: string[] = text.substring(seq[i].idx, seq[i+1].idx).split(':');
+                    let refStrPieces: string[] = context.substring(seq[i].idx, seq[i+1].idx).split(':');
                     let key: string = refStrPieces[0].substring(1, refStrPieces[0].length - 1).trim().toLowerCase();
 
                     let urlPieces: string[] = refStrPieces.slice(1).join(':').trim().split(' ');
@@ -517,7 +575,7 @@ let parse = (buffer: string): Element[] => {
                 return reflinks;
             },
 
-            'reflink': (seq: t_spottedSeq[], text: string): [ Element, t_reflinkSpec ] => {
+            'reflink': (seq: t_spottedSeq[], context: string): [ Element, t_reflinkSpec ] => {
                 let el: Element = new Element('');
                 let strEl: Element | null = null;
 
@@ -527,12 +585,12 @@ let parse = (buffer: string): Element[] => {
                     [ seq[1], seq[2] ] :
                     [ seq[0], seq[1] ];
 
-                let key: string = text.substring(keySpots[0].idx + keySpots[0].len, keySpots[1].idx).toLowerCase();
+                let key: string = context.substring(keySpots[0].idx + keySpots[0].len, keySpots[1].idx).toLowerCase();
 
                 if (str != null) {
                     el.appendChild(new Element('', [], '['));
 
-                    str = text.substring(seq[0].idx + seq[0].len, seq[1].idx);
+                    str = context.substring(seq[0].idx + seq[0].len, seq[1].idx);
                     strEl = inline(str);
                     el.appendChild(strEl);
 
@@ -549,7 +607,19 @@ let parse = (buffer: string): Element[] => {
                 return [ el, { elid: el.id, key, keyEl, strEl } ]
             },
 
-            'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element | void => {
+            'listitem': (seq: t_spottedSeq[]): Element => {
+                let curPar: string = paragraphs[curParIdx];
+                let li: Element = new Element('li');
+
+                let str: string = curPar.substring(seq[0].idx, seq[1].idx + seq[1].len).trim();
+                let inlineEl: Element = inline(str);
+
+                li.appendChild(inlineEl);
+
+                return li;
+            },
+
+            'table': (rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element => {
                 let table: Element = new Element('table');
                 let thead: Element = new Element('thead');
                 let headtr: Element = new Element('tr');
@@ -563,7 +633,7 @@ let parse = (buffer: string): Element[] => {
                 let headFields: string[] = headstr.split('|');
                 
                 for (let i: number = 0; i < columnCount; i++) {
-                    let text: string = headFields[i] || '';
+                    let context: string = headFields[i] || '';
                     let textAlign: t_textAlign = textAligns[i];
                     let attributes: t_attribute[] = [];
 
@@ -571,7 +641,7 @@ let parse = (buffer: string): Element[] => {
                         attributes.push({ key: 'align', value: textAlign.align });
                     }
 
-                    let th: Element = new Element('th', attributes, text);
+                    let th: Element = new Element('th', attributes, context);
 
                     headtr.appendChild(th);
                 }
@@ -580,21 +650,7 @@ let parse = (buffer: string): Element[] => {
                 table.appendChild(thead);
 
                 /**
-                 * if there is no additional row that is related to our table
-                 * forward the index to the beginning of the next line
-                 */
-                if (rowRange == 0) {
-                    if (curLineIdx + 2 < lineStartIdxs[curParIdx].length) {
-                        index = lineStartIdxs[curParIdx][curLineIdx + 2];
-                    } else {
-                        index = paragraphs[curParIdx].length;
-                    }
-
-                    return;
-                }
-
-                /**
-                 * split the row strings and extract the text to 
+                 * split the row strings and extract the context to 
                  * create element objects
                  */
                 let tbody: Element = new Element('tbody');
@@ -609,7 +665,7 @@ let parse = (buffer: string): Element[] => {
                     let tr: Element = new Element('tr');
 
                     for (let j: number = 0; j < columnCount; j++) {
-                        let text: string = rowFields[j] || '';
+                        let context: string = rowFields[j] || '';
                         let textAlign: t_textAlign = textAligns[j];
                         let attributes: t_attribute[] = [];
 
@@ -617,7 +673,7 @@ let parse = (buffer: string): Element[] => {
                             attributes.push({ key: 'align', value: textAlign.align });
                         }
 
-                        let td: Element = new Element('td', attributes, text);
+                        let td: Element = new Element('td', attributes, context);
                         tr.appendChild(td);
                     }
 
@@ -626,60 +682,77 @@ let parse = (buffer: string): Element[] => {
 
                 table.appendChild(tbody);
 
-                if (rowIdx + rowRange < lineStartIdxs[curParIdx].length) {
-                    index = lineStartIdxs[curParIdx][rowIdx + rowRange];
-                } else {
-                    index = paragraphs[curParIdx].length;
-                }
-
                 return table;
             }
         }
 
-        return operations.hasOwnProperty(elementName) ?
-            operations[elementName] :
-            null;
+        if (operations.hasOwnProperty(elementName)) {
+            return operations[elementName];
+        } else {
+            throw Error(`${elementName} operation couldn't find in extract methods`);
+        }
     }
 
     /**
-     * gets the char and executes related operate fn
+     * gets the char and executes related operate fn on 
+     * the current paragraphs
      */
-    let operate = (char: string): Element | void => {
+    let operate = (char: string, idx: number, context: string, paragraphRef: Element): t_operateResult | false => {
         switch (char) {
             case '\n': {
                 curLineIdx++;
-                return;
+                return false;
             }
 
             case '|': {
-                let matchFn = match('table');
-                if (!matchFn) return;
+                let matchFn: Function = match('table');
 
                 let [ matchRes, rowRange, columnCount, textAligns ] = matchFn();
-                if (!matchRes) return;
+                if (!matchRes) return false;
 
-                let extractFn = extract('table');
-                if (!extractFn) return;
-                
-                paragraphElBuffer.childs.pop();
-                return extractFn(rowRange, columnCount, textAligns || []);
+                let extractFn: Function = extract('table');
+                let table: Element = extractFn(rowRange, columnCount, textAligns || []);
+
+                let nextStartingIdx: number = paragraphs[curParIdx].length;
+                let rowStartIdx: number = curLineIdx + 2;
+
+                if (rowRange == 0 && rowStartIdx < lineStartIdxs[curParIdx].length) {
+                    nextStartingIdx = lineStartIdxs[curParIdx][rowStartIdx];
+                } else if (rowStartIdx + rowRange < lineStartIdxs[curParIdx].length) {
+                    nextStartingIdx = lineStartIdxs[curParIdx][rowStartIdx + rowRange];
+                }
+
+                paragraphRef.childs.pop();
+                return [ table, nextStartingIdx ];
             }
 
-            default: break;
+            default: {
+                if (Number.isInteger(parseInt(char))) {
+                    let matchFn: Function = match('orderedlistitem');
+
+                    let matchRes: t_spottedSeq[] | false = matchFn(idx, context);
+                    if (!matchRes) return false;
+
+                    console.log(matchRes, lastListItemBuffer);
+                    return false;
+                }
+            } break;
         }
+
+        return false;
     }
 
     /**
      * looking for a pattern beginning and then if a pattern beginning can be found
      * match and extract operations will be applied
      *
-     * @char: current char of text
+     * @char: current char of context
      *
-     * @idx: current idx of text
+     * @idx: current idx of context
      *
-     * @text: the text that match and extract operations will be applied on
+     * @context: the context that match and extract operations will be applied on
      */
-    let operateInline = (char: string, idx: number, text: string): t_operateInlineResult | false => {
+    let operateInline = (char: string, idx: number, context: string): t_operateResult | false => {
         switch(char) {
             case '\n': {
                 return [ new Element('', [], '<br>'), idx + 1 ];
@@ -687,33 +760,29 @@ let parse = (buffer: string): Element[] => {
 
             case '_':
             case '*': {
-                if ((char == '*' && text[idx + 1] == '*') ||
-                    (char == '_' && text[idx + 1] == '_')) {
-                    let matchFn = match('emphasis');
-                    if (!matchFn) return false;
+                if ((char == '*' && context[idx + 1] == '*') ||
+                    (char == '_' && context[idx + 1] == '_')) {
+                    let matchFn: Function = match('emphasis');
 
-                    let matchRes: t_spottedSeq[] | false = matchFn('bold', idx, text);
+                    let matchRes: t_spottedSeq[] | false = matchFn('bold', idx, context);
                     if (!matchRes) return false;
 
-                    let extractFn = extract('emphasis');
-                    if (!extractFn) return false;
+                    let extractFn: Function = extract('emphasis');
 
-                    let strong: Element = extractFn('strong', matchRes[0], matchRes[1], text);
+                    let strong: Element = extractFn('strong', matchRes[0], matchRes[1], context);
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
                     return [ strong, patternEnding.idx + patternEnding.len ];
                 } else {
-                    let matchFn = match('emphasis');
-                    if (!matchFn) return false;
+                    let matchFn: Function = match('emphasis');
 
-                    let matchRes: t_spottedSeq[] | false = matchFn('italic', idx, text);
+                    let matchRes: t_spottedSeq[] | false = matchFn('italic', idx, context);
                     if (!matchRes) return false;
 
-                    let extractFn = extract('emphasis');
-                    if (!extractFn) return false;
+                    let extractFn: Function = extract('emphasis');
 
-                    let em: Element = extractFn('em', matchRes[0], matchRes[1], text);
+                    let em: Element = extractFn('em', matchRes[0], matchRes[1], context);
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
@@ -722,17 +791,15 @@ let parse = (buffer: string): Element[] => {
             }
 
             case '~': {
-                if (text[idx + 1] == '~') {
-                    let matchFn = match('emphasis');
-                    if (!matchFn) return false;
+                if (context[idx + 1] == '~') {
+                    let matchFn: Function = match('emphasis');
 
-                    let matchRes: t_spottedSeq[] | false = matchFn('scratch', idx, text);
+                    let matchRes: t_spottedSeq[] | false = matchFn('scratch', idx, context);
                     if (!matchRes) return false;
 
-                    let extractFn = extract('emphasis');
-                    if (!extractFn) return false;
+                    let extractFn: Function = extract('emphasis');
 
-                    let del: Element = extractFn('del', matchRes[0], matchRes[1], text);
+                    let del: Element = extractFn('del', matchRes[0], matchRes[1], context);
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
@@ -741,20 +808,18 @@ let parse = (buffer: string): Element[] => {
             } break;
 
             case '[': {
-                let matchFn;
+                let matchFn: Function;
                 let matchRes: t_spottedSeq[] | false;
-                let extractFn;
+                let extractFn: Function;
 
                 matchFn = match('link');
-                if (!matchFn) return false;
 
-                matchRes = matchFn(idx, text);
+                matchRes = matchFn(idx, context);
 
                 if (matchRes) {
                     extractFn = extract('link');
-                    if (!extractFn) return false;
 
-                    let a: Element = extractFn(matchRes, text);
+                    let a: Element = extractFn(matchRes, context);
                     
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
@@ -762,15 +827,13 @@ let parse = (buffer: string): Element[] => {
                 }
 
                 matchFn = match('ref');
-                if (!matchFn) return false;
 
-                matchRes = matchFn(idx, text);
+                matchRes = matchFn(idx, context);
 
                 if (matchRes) {
                     extractFn = extract('ref');
-                    if (!extractFn) return false;
 
-                    let refs: t_reflink[] = extractFn(matchRes, text);
+                    let refs: t_reflink[] = extractFn(matchRes, context);
 
                     for (let i: number = 0; i < refs.length; i++) {
                         let { key, url, title } = refs[i];
@@ -785,15 +848,13 @@ let parse = (buffer: string): Element[] => {
                 }
 
                 matchFn = match('reflink');
-                if (!matchFn) return false;
 
-                matchRes = matchFn(idx, text);
+                matchRes = matchFn(idx, context);
 
                 if (matchRes) {
                     extractFn = extract('reflink');
-                    if (!extractFn) return false;
 
-                    let extractRes: [ Element, t_reflinkSpec ] = extractFn(matchRes, text);
+                    let extractRes: [ Element, t_reflinkSpec ] = extractFn(matchRes, context);
 
                     refsEl.push(extractRes[1]);
 
@@ -819,7 +880,7 @@ let parse = (buffer: string): Element[] => {
      * sub emphasises. If we have an element we append it to inlineEl and set idx to the next of the
      * pattern. If opRes returned false we just store the char at inlineTextBuffer and increate the idx.
      */
-    let inline = (text: string): Element => {
+    let inline = (context: string): Element => {
         let idx: number = 0;
         let inlineTextBuffer: string = '';
         let inlineEl: Element = new Element('');
@@ -831,8 +892,8 @@ let parse = (buffer: string): Element[] => {
             }
         }
 
-        while (idx < text.length) {
-            let opRes: t_operateInlineResult | false = operateInline(text[idx], idx, text);
+        while (idx < context.length) {
+            let opRes: t_operateResult | false = operateInline(context[idx], idx, context);
 
             if (opRes) {
                 pushInlineText();
@@ -843,7 +904,7 @@ let parse = (buffer: string): Element[] => {
                 continue;
             }
 
-            inlineTextBuffer += text[idx];
+            inlineTextBuffer += context[idx];
             idx++;
         }
 
@@ -851,50 +912,53 @@ let parse = (buffer: string): Element[] => {
         return inlineEl;
     }
 
-    let pushTextEl = (): void => {
-        let el: Element = inline(textBuffer);
-        textBuffer = '';
+    let paragraph = (context: string): Element => {
+        let idx: number = 0;
+        let paragraphTextBuffer: string = '';
+        let paragraphEl: Element = new Element('p');
 
-        if (el.tag != '' || el.text != '' || el.childs.length != 0) {
-            paragraphElBuffer.appendChild(el);
+        let pushParagraphText = () => {
+            if (paragraphTextBuffer != '') {
+                let el: Element = inline(paragraphTextBuffer);
+                paragraphTextBuffer = '';
+
+                if (el.tag != '' || el.context != '' || el.childs.length != 0) {
+                    paragraphEl.appendChild(el);
+                }
+            }
         }
+
+        while (idx < context.length) {
+            let char: string = context[idx];
+            let opRes: t_operateResult | false = operate(char, idx, context, paragraphEl);
+
+            if (opRes) {
+                pushParagraphText();
+
+                let [ el, ridx ] = opRes;
+                if (el) paragraphEl.appendChild(el);
+                idx = ridx;
+                continue;
+            }
+
+            paragraphTextBuffer += char;
+            idx++;
+        }
+
+        pushParagraphText();
+
+        return paragraphEl;
     }
 
     while (curParIdx < paragraphs.length) {
-        let curPar: string = paragraphs[curParIdx];
-        paragraphElBuffer = new Element('p');
-
-        while (index < paragraphs[curParIdx].length) {
-            let char: string = curPar[index];
-            let el: Element | void = operate(char);
-
-            if (el) {
-                pushTextEl();
-                paragraphElBuffer.appendChild(el);
-            } else {
-                textBuffer += char;
-            }
-
-            index++;
-        }
-
-        if (textBuffer != '') {
-            pushTextEl();
-        }
-
-        if (paragraphElBuffer.childs.length != 0) {
-            elements.push(paragraphElBuffer);
-        }
-
-        index = 0;
-        curLineIdx = 0;
+        let el: Element = paragraph(paragraphs[curParIdx]);
+        if (el.childs.length != 0) elements.push(el);
         curParIdx++;
     }
 
     /**
      * resolve reflinks
      */
-
     let resolveRefLink = (el: Element, reflinkel: t_reflinkSpec): boolean => {
         let ref: { url: string, title: string } | undefined = refMap.get(reflinkel.key);
 

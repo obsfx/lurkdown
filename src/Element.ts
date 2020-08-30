@@ -9,14 +9,14 @@ export default class Element {
     id: string;
     tag: string;
     attributes: t_attribute[];
-    text: string;
+    context: string;
     childs: Element[];
 
-    constructor(tag: string, attributes: t_attribute[] = [], text: string = '') {
+    constructor(tag: string, attributes: t_attribute[] = [], context: string = '') {
         this.id = uuidv4();
         this.tag = tag;
         this.attributes = attributes;
-        this.text = text;
+        this.context = context;
         this.childs = [];
     }
 
@@ -26,8 +26,8 @@ export default class Element {
 
     emitHtml(level: number = 0): string {
         if (this.tag.trim() == '') {
-            this.childs.forEach((el: Element) => this.text += el.emitHtml());
-            return this.text;
+            this.childs.forEach((el: Element) => this.context += el.emitHtml());
+            return this.context;
         }
 
         let tab: string = '  '.repeat(level);
@@ -35,7 +35,7 @@ export default class Element {
             return `${prev} ${current.key}='${current.value}'`;
         }, '');
 
-        let html: string = `\n${tab}<${this.tag}${attributes}>\n${tab}${this.text}`;
+        let html: string = `\n${tab}<${this.tag}${attributes}>\n${tab}${this.context}`;
         this.childs.forEach((el: Element) => html += el.emitHtml(level + 1));
         html += `\n${tab}</${this.tag}>`;
 

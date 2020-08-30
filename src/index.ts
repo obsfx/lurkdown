@@ -1,5 +1,6 @@
 import parse from './Parser'
 
+/*
 let str: string = `Emphasis, aka italics, with *asterisks* or _underscores_.
 
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
@@ -36,23 +37,12 @@ Some text to show that the reference links can follow later.
 [1]: http://slashdot.org
 [link text itself]: http://www.reddit.com//
 `;
+*/
 
-//let str: string = `
-//
-//[I'm an inline-style link]( https://www.google.com )
-//
-//[I'm an inline-style link with title](https://www  's
-//                                      afasfsaf')
-//
-//[1]: http://slashdot.org
-//[arbitrary case-insensitive reference text]: asfsafasfAAAAAAA
-//`;
-//
-//let str: string = `
-//[I'm a reference-style link][test]
-//[1]
-//
-//[1]: http://slashdot.org
-//[test]: http://google.com`;
+let str: string = `
+  1. First ordered list item
+  2. Another item
+3. Things
+`;
 
 parse(str);
