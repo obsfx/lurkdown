@@ -71,18 +71,20 @@ let parse = (buffer: string): Element[] => {
     /**
      * list buffering
      */
+    let listParentElId: string | null = null;
     let listBuffer: ListBuffer | null = null;
 
-    let pushLi = (li: Element, outerindent: number, innerindent: number, type: 'ul' | 'ol'): void => {
-        if (!listBuffer) listBuffer = new ListBuffer(type, outerindent, innerindent);
-        let parentId: string = findOrCreateList(listBuffer, type, null, outerindent, innerindent);
-        findAndPush(listBuffer, li, parentId);
-        console.log(parentId);
-        console.log(listBuffer, 'listbuffer');
-    }
-
-    let findOrCreateList = (listBufferRef: ListBuffer, type: 'ul' | 'ol', id: string | null, outerindent: number, innerindent: number): string => {
+    let findOrCreateList = (
+        listBufferRef: ListBuffer, 
+        type: 'ul' | 'ol', 
+        id: string | null, 
+        outerindent: number, 
+        innerindent: number): string | false => {
         id = id || listBufferRef.id;
+
+        if (type != listBufferRef.type) {
+            return false;
+        }
 
         if (outerindent < listBufferRef.innerindent) {
             id = listBufferRef.id;
@@ -95,13 +97,14 @@ let parse = (buffer: string): Element[] => {
             let child: Element | ListBuffer = listBufferRef.childs[i];
 
             if (child instanceof ListBuffer) {
-                if (outerindent >= child.innerindent) {
+                if (type == child.type && outerindent >= child.innerindent) {
                     childContainerAvailable = true;
                     id = child.id;
                 }
 
-                let childScanRes: string = findOrCreateList(child, type, id, outerindent, innerindent);
-                if (childScanRes != id)  {
+                let childScanRes: string | false = findOrCreateList(child, type, id, outerindent, innerindent);
+
+                if (childScanRes && childScanRes != id)  {
                     childContainerAvailable = true;
                     id = childScanRes;
                 }
@@ -135,6 +138,56 @@ let parse = (buffer: string): Element[] => {
         return false;
     }
 
+    let pushLi = (li: Element, outerindent: number, innerindent: number, type: 'ul' | 'ol'): void => {
+        if (!listBuffer) listBuffer = new ListBuffer(type, outerindent, innerindent);
+
+        let parentId: string | false = findOrCreateList(listBuffer, type, null, outerindent, innerindent);
+
+        if (!parentId) return;
+
+        findAndPush(listBuffer, li, parentId);
+    }
+
+    let findListBufferForPar = (listBufferRef: ListBuffer, id: string | null, outerindent: number): string | false => {
+        if (outerindent >= listBufferRef.innerindent) {
+            id = listBufferRef.id;
+        }
+
+        for (let i: number = 0; i < listBufferRef.childs.length; i++) {
+            let child: ListBuffer | Element = listBufferRef.childs[i];
+
+            if (child instanceof ListBuffer) {
+                id = findListBufferForPar(child, id, outerindent) || id;
+            }
+        }
+
+        return id == null ? false : id;
+    }
+
+    let findAndPushPar = (listBufferRef: ListBuffer, par: Element, id: string): boolean => {
+        if (id == listBufferRef.id) {
+            let lastElIdx: number = 0;
+
+            for (let i: number = 0; i < listBufferRef.childs.length; i++) {
+                let child: ListBuffer | Element = listBufferRef.childs[i];
+                if (child instanceof Element) lastElIdx = i;
+            }
+
+            par.tag = '';
+            listBufferRef.childs[lastElIdx].appendChild(par);
+            return true;
+        }
+
+        for (let i: number = 0; i < listBufferRef.childs.length; i++) {
+            let child: ListBuffer | Element = listBufferRef.childs[i];
+
+            if (child instanceof ListBuffer && findAndPush(listBufferRef, par, id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
     /**
      * helper functions
      */
@@ -684,14 +737,20 @@ let parse = (buffer: string): Element[] => {
                 return [ el, { elid: el.id, key, keyEl, strEl } ]
             },
 
-            'listitem': (seq: t_spottedSeq[], context: string): Element => {
+            'listitem': (seq: t_spottedSeq[], context: string): [ Element, string ] => {
                 let str: string = context.substring(seq[0].idx + 2, seq[1].idx);
-
-                let pEl: Element = paragraph(str);
-                pEl.tag = '';
+                
+                // headingi döndür ve match kısmında fixle daha uzun karakterdeki headler yanlış sonuç döndürecek
+                // nokta veya parantez bulana kadar tara
 
                 let li: Element = new Element('li');
-                li.appendChild(pEl)
+
+                let pEl: Element | null = paragraph(str, false);
+                
+                if (pEl) {
+                    pEl.tag = '';
+                    li.appendChild(pEl)
+                }
 
                 //let head: string = context.substring(seq[0].idx, seq[0].idx + 1);
                 //let type: 'ul' | 'ol' = Number.isInteger(parseInt(head)) ? 'ol' : 'ul';
@@ -829,8 +888,10 @@ let parse = (buffer: string): Element[] => {
                     let extractFn: Function = extract('listitem');
                     let li: Element = extractFn(matchRes, context);
 
-                    console.log(matchRes, outerindent, innerindent);
                     pushLi(li, outerindent, innerindent, 'ol');
+
+                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+                    return [ null, patternEnding.idx ];
                 }
             } break;
         }
@@ -1008,7 +1069,7 @@ let parse = (buffer: string): Element[] => {
         return inlineEl;
     }
 
-    let paragraph = (context: string): Element => {
+    let paragraph = (context: string, checkListBuffer: boolean = true): Element | null => {
         let idx: number = 0;
         let paragraphTextBuffer: string = '';
         let paragraphEl: Element = new Element('p');
@@ -1051,16 +1112,26 @@ let parse = (buffer: string): Element[] => {
             idx++;
         }
 
-        console.log(outerindent, '---');
-
         pushParagraphText();
+
+
+        if (checkListBuffer && paragraphEl.childs.length != 0 && listBuffer) {
+            let lbid: string | false = findListBufferForPar(listBuffer, null, outerindent);
+
+            if (lbid) {
+                findAndPushPar(listBuffer, paragraphEl, lbid);
+                return null;
+            } else {
+                listBuffer = null;
+            }
+        }
 
         return paragraphEl;
     }
 
     while (curParIdx < paragraphs.length) {
-        let el: Element = paragraph(paragraphs[curParIdx]);
-        if (el.childs.length != 0) elements.push(el);
+        let el: Element | null = paragraph(paragraphs[curParIdx], listBuffer ? true : false);
+        if (el && el.childs.length != 0) elements.push(el);
         curParIdx++;
     }
 
@@ -1104,6 +1175,7 @@ let parse = (buffer: string): Element[] => {
     //
 
     //elements.forEach((e: Element) => console.log(e.emitHtml()));
+    console.log(listBuffer);
     return elements;
 }
 

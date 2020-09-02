@@ -40,9 +40,11 @@ Some text to show that the reference links can follow later.
 */
 
 let str: string = `
-      1. First ordered list item
-        2. Another item
-           3. Things
+1. First ordered list item
+2. Another item
+   3. Things
+
+  sfasfasfasfasfasfaskfj
 `;
 
 parse(str);
