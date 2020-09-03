@@ -9,13 +9,17 @@ export default class Element {
     id: string;
     tag: string;
     attributes: t_attribute[];
+    outerindent: number;
+    innerindent: number;
     context: string;
     childs: Element[];
 
-    constructor(tag: string, attributes: t_attribute[] = [], context: string = '') {
+    constructor(tag: string, attributes: t_attribute[] = [], context: string = '', outerindent: number = 0, innerindent: number = 0) {
         this.id = uuidv4();
         this.tag = tag;
         this.attributes = attributes;
+        this.outerindent = outerindent;
+        this.innerindent = innerindent;
         this.context = context;
         this.childs = [];
     }

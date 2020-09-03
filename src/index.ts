@@ -1,6 +1,6 @@
 import parse from './Parser'
 
-/*
+
 let str: string = `Emphasis, aka italics, with *asterisks* or _underscores_.
 
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
@@ -36,15 +36,23 @@ Some text to show that the reference links can follow later.
 [arbitrary case-insensitive reference text]: https://www.mozilla.org
 [1]: http://slashdot.org
 [link text itself]: http://www.reddit.com//
-`;
-*/
 
-let str: string = `
 1. First ordered list item
 2. Another item
-   3. Things
+   1. Actual numbers don't matter, just that it's a number
+   1. Ordered sub-list
+4. And another item.
 
-  sfasfasfasfasfasfaskfj
+   You can have properly indented paragraphs within list items. Notice the blank line above, and the leading spaces (at least one, but we'll use three here to also align the raw Markdown).
 `;
+
+
+//let str: string = `
+//1. Firft ordered list item
+//   askfhaskjfhjkasf
+//2. Another item
+//   3. Things
+//
+//`;
 
 parse(str);
