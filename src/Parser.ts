@@ -15,6 +15,10 @@ let parse = (buffer: string): Element[] => {
      * t_orderedListItemMatchResult     spottedSeqs, outerindent, innerindent, head
      */
     type t_orderedListItemMatchResult = [ t_spottedSeq[], number, number, number ];
+    /**
+     * t_unOrderedListItemMatchResult     spottedSeqs, outerindent, innerindent
+     */
+    type t_unOrderedListItemMatchResult = [ t_spottedSeq[], number, number ];
     type t_extractFixesResult = { source: string, left: boolean, right: boolean };
     /**
      * t_operateInlineResult            Element, idx
@@ -79,12 +83,8 @@ let parse = (buffer: string): Element[] => {
         start: number,
         id: string | null, 
         outerindent: number, 
-        innerindent: number): string | false => {
+        innerindent: number): string => {
         id = id || listBufferRef.id;
-
-        if (type != listBufferRef.tag) {
-            return false;
-        }
 
         if (outerindent < listBufferRef.innerindent) {
             id = listBufferRef.id;
@@ -100,9 +100,10 @@ let parse = (buffer: string): Element[] => {
                 childContainerAvailable = true;
                 id = child.id;
 
-                let childScanRes: string | false = findOrCreateList(child, type, start, id, outerindent, innerindent);
+                // FIXXXX THEREEE
+                let childScanRes: string = findOrCreateList(child, type, start, id, outerindent, innerindent);
 
-                if (childScanRes && childScanRes != id)  {
+                if (childScanRes != id)  {
                     childContainerAvailable = true;
                     id = childScanRes;
                 }
@@ -110,7 +111,12 @@ let parse = (buffer: string): Element[] => {
         }
 
         if (!childContainerAvailable) {
-            let list_attributes: t_attribute[] = [ { key: 'start', value: start.toString() } ];
+            let list_attributes: t_attribute[] = [];
+
+            if (type == 'ol') {
+                list_attributes.push({ key: 'start', value: start.toString() });
+            }
+
             let list: Element = new Element(type, list_attributes, '', outerindent, innerindent);
 
             let liid: string | false = findListItem(listBufferRef, null, outerindent);
@@ -140,9 +146,24 @@ let parse = (buffer: string): Element[] => {
         return false;
     }
 
-    let pushLi = (li: Element, start: number, outerindent: number, innerindent: number, type: 'ul' | 'ol'): void => {
-        let list_attributes: t_attribute[] = [ { key: 'start', value: start.toString() } ];
-        if (!listBuffer) listBuffer = new Element(type, list_attributes, '', outerindent, innerindent);
+    let pushLi = (
+        li: Element, 
+        start: number, 
+        outerindent: number, 
+        innerindent: number, 
+        type: 'ul' | 'ol',
+        parentElId: string): void => {
+
+        if (listBuffer && type != listBuffer.tag && outerindent < listBuffer.innerindent) {
+            pushList();
+        }
+
+        if (!listBuffer) {
+            let list_attributes: t_attribute[] = [ { key: 'start', value: start.toString() } ];
+            listBuffer = new Element(type, list_attributes, '', outerindent, innerindent);
+        }
+
+        if (!listParentElId) listParentElId = parentElId;
 
         let parentId: string | false = findOrCreateList(listBuffer, type, start, null, outerindent, innerindent);
 
@@ -191,25 +212,6 @@ let parse = (buffer: string): Element[] => {
         return false;
     }
 
-    //let resolveListBuffer = (listBufferRef: ListBuffer): Element => {
-    //    let attributes: t_attribute[] = [ { key: 'start', value: listBufferRef.start.toString() } ];
-    //    let container: Element = new Element(listBufferRef.type, attributes);
-
-    //    for (let i: number = 0; i < listBufferRef.childs.length; i++) {
-    //        let child: ListBuffer | Element = listBufferRef.childs[i];
-
-    //        if (child instanceof Element) {
-    //            container.appendChild(child);
-    //        } else if (child instanceof ListBuffer) {
-    //            let li: Element = new Element('li');
-    //            li.appendChild(resolveListBuffer(child));
-    //            container.appendChild(li);
-    //        }
-    //    }
-
-    //    return container;
-    //}
-
     let findParentAndPush = (el: Element, targetel: Element, targetid: string): boolean => {
         if (targetel.id == targetid) {
             targetel.appendChild(el);
@@ -229,6 +231,7 @@ let parse = (buffer: string): Element[] => {
         if (listBuffer && listParentElId) {
             pushEl(listBuffer, listParentElId);
             listBuffer = null;
+            listParentElId = null;
         }
     }
 
@@ -331,6 +334,61 @@ let parse = (buffer: string): Element[] => {
             }
 
             return true;
+        }
+
+        let isThisAnOrderedListHead = (idx: number, str: string): [ boolean, number, number ] => {
+            let headScanIdx: number = idx;
+
+            while (headScanIdx < str.length && str[headScanIdx] != '.' && str[headScanIdx] != ')') {
+                headScanIdx++;
+            }
+
+            if (headScanIdx >= str.length - 1 ||
+                (str[headScanIdx] != '.' && str[headScanIdx] != ')') ||
+                (str[headScanIdx + 1] != ' ' && str[headScanIdx + 1] != '\n')) {
+                return [ false, 0, 0 ];
+            }
+
+            let wsScanIdx: number = idx - 1;
+            let outerindent: number = 0;
+
+            while (wsScanIdx > -1 && str[wsScanIdx] != '\n') {
+                let char: string = str[wsScanIdx];
+
+                if (char != ' ') return [ false, 0, 0 ];
+
+                outerindent++;
+                wsScanIdx--;
+            }
+
+            if (!Number.isInteger(parseInt(str.substring(idx, headScanIdx)))) {
+                return [ false, 0, 0 ]
+            }
+
+            return [ true, outerindent, parseInt(str.substring(idx, headScanIdx))];
+        }
+
+        let isThisAnUnOrderedListHead = (idx: number, str: string): [ boolean, number ] => {
+            let outerindent: number = 0;
+
+            if (idx >= str.length - 1 || 
+                (str[idx] != '*' && str[idx] != '-' && str[idx] != '+') ||
+                (str[idx + 1] != ' ' && str[idx + 1] != '\n')) {
+                return [ false, 0 ];
+            }
+
+            let wsScanIdx: number = idx - 1;
+
+            while (wsScanIdx > -1 && str[wsScanIdx] != '\n') {
+                let char: string = str[wsScanIdx];
+
+                if (char != ' ') return [ false, 0 ];
+
+                outerindent++;
+                wsScanIdx--;
+            }
+
+            return [ true, outerindent ];
         }
 
         let operations: t_operations = {
@@ -524,39 +582,46 @@ let parse = (buffer: string): Element[] => {
                 return spottedSeqs;
             },
 
-            'orderedlistitem': (start: number, str: string): t_orderedListItemMatchResult | false => {
-                let isThisAnOrderedListHead = (idx: number, str: string): [ boolean, number, number ] => {
-                    let headScanIdx: number = idx;
+            'unorderedlistitem': (start: number, str: string): t_unOrderedListItemMatchResult | false => {
+                let [ isHead, outerindent ] = isThisAnUnOrderedListHead(start, str);
 
-                    while (headScanIdx < str.length && str[headScanIdx] != '.' && str[headScanIdx] != ')') {
-                        headScanIdx++;
+                if (!isHead) return false;
+
+                let spottedSeqs: t_spottedSeq[] = [];
+                spottedSeqs.push({ idx: start, len: 1 });
+
+                let scanIdx: number = start + 3;
+
+                let firstCharIdx: number | null = null;
+                let innerindent: number = 0;
+
+                while (scanIdx < str.length) {
+                    if (!firstCharIdx && str[scanIdx] != ' ' && str[scanIdx] != '\n') {
+                        firstCharIdx = scanIdx;
                     }
 
-                    if (headScanIdx >= str.length - 1 ||
-                        (str[headScanIdx] != '.' && str[headScanIdx] != ')') ||
-                        (str[headScanIdx + 1] != ' ' && str[headScanIdx + 1] != '\n')) {
-                        return [ false, 0, 0 ];
+                    if (isThisAnUnOrderedListHead(scanIdx, str)[0] || 
+                        isThisAnOrderedListHead(scanIdx, str)[0] || scanIdx == str.length - 1) {
+                        spottedSeqs.push({ idx: scanIdx == str.length - 1 ? scanIdx + 1 : scanIdx, len: 1 });
+                        break;
                     }
 
-                    let wsScanIdx: number = idx - 1;
-                    let outerindent: number = 0;
-
-                    while (wsScanIdx > -1 && str[wsScanIdx] != '\n') {
-                        let char: string = str[wsScanIdx];
-
-                        if (char != ' ') return [ false, 0, 0 ];
-
-                        outerindent++;
-                        wsScanIdx--;
-                    }
-
-                    if (!Number.isInteger(parseInt(str.substring(idx, headScanIdx)))) {
-                        return [ false, 0, 0 ]
-                    }
-
-                    return [ true, outerindent, parseInt(str.substring(idx, headScanIdx))];
+                    scanIdx++;
                 }
 
+                if (firstCharIdx != null) {
+                    while (firstCharIdx > -1 && str[firstCharIdx - 1] != '\n') {
+                        innerindent++;
+                        firstCharIdx--;
+                    }
+                } else {
+                    innerindent = start + 3;
+                }
+
+                return [ spottedSeqs, outerindent, innerindent ];
+            },
+
+            'orderedlistitem': (start: number, str: string): t_orderedListItemMatchResult | false => {
                 let [ isHead, outerindent, head ] = isThisAnOrderedListHead(start, str);
 
                 if (!isHead) return false;
@@ -574,7 +639,8 @@ let parse = (buffer: string): Element[] => {
                         firstCharIdx = scanIdx;
                     }
 
-                    if (isThisAnOrderedListHead(scanIdx, str)[0] || scanIdx == str.length - 1) {
+                    if (isThisAnUnOrderedListHead(scanIdx, str)[0] || 
+                        isThisAnOrderedListHead(scanIdx, str)[0] || scanIdx == str.length - 1) {
                         spottedSeqs.push({ idx: scanIdx == str.length - 1 ? scanIdx + 1 : scanIdx, len: 1 });
                         break;
                     }
@@ -937,6 +1003,26 @@ let parse = (buffer: string): Element[] => {
                 return [ table, nextStartingIdx ];
             }
 
+            case '*':
+            case '-':
+            case '+': {
+                let matchFn: Function = match('unorderedlistitem');
+
+                let res = matchFn(idx, context);
+                if (!res) return false;
+
+                let [ matchRes, outerindent, innerindent ] = res;
+
+                let extractFn: Function = extract('listitem');
+                let li: Element = extractFn(matchRes, context, outerindent, innerindent);
+
+                pushLi(li, 0, outerindent, innerindent, 'ul', paragraphRef.id);
+
+                let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                return [ null, patternEnding.idx ];
+            };
+
             default: {
                 if (Number.isInteger(parseInt(char))) {
                     let matchFn: Function = match('orderedlistitem');
@@ -949,8 +1035,7 @@ let parse = (buffer: string): Element[] => {
                     let extractFn: Function = extract('listitem');
                     let li: Element = extractFn(matchRes, context, outerindent, innerindent);
 
-                    listParentElId = paragraphRef.id;
-                    pushLi(li, head, outerindent, innerindent, 'ol');
+                    pushLi(li, head, outerindent, innerindent, 'ol', paragraphRef.id);
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
