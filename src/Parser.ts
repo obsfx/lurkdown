@@ -30,9 +30,9 @@ let parse = (buffer: string): Element[] => {
     type t_reflinkSpec = { elid: string, key: string, keyEl: Element, strEl: Element | null };
 
     /**
-     * t_paragraphResult                Element, outerindent
+     * t_findOrCreateListResult         id, subExist
      */
-    //type t_paragraphResult = [ Element, number ];
+    //type t_findOrCreateListResult = [ string, boolean ];
 
     /**
      * variables
@@ -74,59 +74,89 @@ let parse = (buffer: string): Element[] => {
     /**
      * list buffering
      */
-    let listParentElId: string | null = null;
-    let listBuffer: Element | null = null;
+    let listParentRef: Element | null = null;
+    let listBuffer: Element[] = [];
 
-    let findOrCreateList = (
-        listBufferRef: Element, 
-        type: 'ul' | 'ol', 
-        start: number,
-        id: string | null, 
+    let pushBuffer = (type: 'ul' | 'ol', start: number, outerindent: number, innerindent: number): void => {
+        let list_attributes: t_attribute[] = [];
+        if (type == 'ol') list_attributes.push({ key: 'start', value: start.toString() });
+        listBuffer.push(new Element(type, list_attributes, '', outerindent, innerindent));
+    }
+
+    let pushLi = (
+        li: Element, 
+        start: number, 
         outerindent: number, 
-        innerindent: number): string => {
-        id = id || listBufferRef.id;
+        innerindent: number, 
+        type: 'ul' | 'ol',
+        parentRef: Element): void => {
 
-        if (outerindent < listBufferRef.innerindent) {
-            id = listBufferRef.id;
+        if (listBuffer.length == 0) {
+            pushBuffer(type, start, outerindent, innerindent);
+        }
+
+        let lastBuffer: Element = listBuffer[listBuffer.length - 1];
+
+        if (lastBuffer.tag != type && outerindent < lastBuffer.innerindent) {
+            pushBuffer(type, start, outerindent, innerindent);
+            lastBuffer = listBuffer[listBuffer.length - 1];
+        }
+
+        if (!listParentRef) listParentRef = parentRef;
+
+        let listId: string | false = findList(lastBuffer, type, lastBuffer.id, outerindent);
+
+        if (!listId) {
+            let li_id: string | false = findListItem(lastBuffer, null, outerindent);
+
+            if (!li_id) throw Error(`pushLi: something went wrong while creating a proper ${type} for li element`);
+
+            let list_attributes: t_attribute[] = [];
+            if (type == 'ol') list_attributes.push({ key: 'start', value: start.toString() });
+
+            let listEl: Element = new Element(type, list_attributes, '', outerindent, innerindent);
+            listId = listEl.id;
+
+            findAndPushToChild(lastBuffer, listEl, li_id);
+        }
+
+        findAndPush(lastBuffer, li, listId);
+    }
+
+    let findList = (
+        listBufferRef: Element,
+        type: 'ul' | 'ol',
+        id: string,
+        outerindent: number,
+    ): string | false => {
+        if (outerindent < listBufferRef.innerindent && type == listBufferRef.tag) {
             return id;
         }
 
-        let childContainerAvailable: boolean = false;
+        if (outerindent == 6) debugger;
 
+        if (type == listBufferRef.tag) {
+            id = listBufferRef.id;
+        }
+
+        let lastElIdx: number = -1;
         for (let i: number = 0; i < listBufferRef.childs.length; i++) {
             let child: Element = listBufferRef.childs[i];
-
-            if (type == child.tag && outerindent >= child.innerindent) {
-                childContainerAvailable = true;
-                id = child.id;
-
-                // FIXXXX THEREEE
-                let childScanRes: string = findOrCreateList(child, type, start, id, outerindent, innerindent);
-
-                if (childScanRes != id)  {
-                    childContainerAvailable = true;
-                    id = childScanRes;
-                }
-            }
+            if (child.tag == 'li' || child.tag == 'ul' || child.tag == 'ol') lastElIdx = i;
         }
 
-        if (!childContainerAvailable) {
-            let list_attributes: t_attribute[] = [];
-
-            if (type == 'ol') {
-                list_attributes.push({ key: 'start', value: start.toString() });
-            }
-
-            let list: Element = new Element(type, list_attributes, '', outerindent, innerindent);
-
-            let liid: string | false = findListItem(listBufferRef, null, outerindent);
-            if (listBuffer && liid) {
-                findAndPushEl(listBuffer, list, liid);
-                id = list.id;
-            }
+        if (lastElIdx == -1) {
+            if (type == listBufferRef.tag) return id;
+            else return false;
         }
 
-        return id;
+        let lastEl: Element = listBufferRef.childs[lastElIdx];
+
+        if (type == lastEl.tag) {
+            id = lastEl.id;
+        } 
+
+        return findList(lastEl, type, id, outerindent);
     }
 
     let findAndPush = (listBufferRef: Element, li: Element, id: string): boolean => {
@@ -146,41 +176,15 @@ let parse = (buffer: string): Element[] => {
         return false;
     }
 
-    let pushLi = (
-        li: Element, 
-        start: number, 
-        outerindent: number, 
-        innerindent: number, 
-        type: 'ul' | 'ol',
-        parentElId: string): void => {
-
-        if (listBuffer && type != listBuffer.tag && outerindent < listBuffer.innerindent) {
-            pushList();
-        }
-
-        if (!listBuffer) {
-            let list_attributes: t_attribute[] = [ { key: 'start', value: start.toString() } ];
-            listBuffer = new Element(type, list_attributes, '', outerindent, innerindent);
-        }
-
-        if (!listParentElId) listParentElId = parentElId;
-
-        let parentId: string | false = findOrCreateList(listBuffer, type, start, null, outerindent, innerindent);
-
-        if (!parentId) return;
-
-        findAndPush(listBuffer, li, parentId);
-    }
-
     let findListItem = (listBufferRef: Element, id: string | null, outerindent: number): string | false => {
-        if (outerindent >= listBufferRef.innerindent) {
+        if ((listBufferRef.tag == 'ul' || listBufferRef.tag == 'ol') && outerindent >= listBufferRef.innerindent) {
             id = listBufferRef.id;
         }
 
         for (let i: number = 0; i < listBufferRef.childs.length; i++) {
             let child: Element = listBufferRef.childs[i];
 
-            if (child.tag == 'ul' || child.tag == 'ol') {
+            if (child.tag == 'li' || child.tag == 'ul' || child.tag == 'ol') {
                 id = findListItem(child, id, outerindent) || id;
             }
         }
@@ -188,7 +192,7 @@ let parse = (buffer: string): Element[] => {
         return id == null ? false : id;
     }
 
-    let findAndPushEl = (listBufferRef: Element, par: Element, id: string): boolean => {
+    let findAndPushToChild = (listBufferRef: Element, par: Element, id: string): boolean => {
         if (id == listBufferRef.id) {
             let lastElIdx: number = 0;
 
@@ -204,7 +208,7 @@ let parse = (buffer: string): Element[] => {
         for (let i: number = 0; i < listBufferRef.childs.length; i++) {
             let child: Element = listBufferRef.childs[i];
 
-            if ((child.tag == 'ul' || child.tag == 'ol') && findAndPush(listBufferRef, par, id)) {
+            if (findAndPush(child, par, id)) {
                 return true;
             }
         }
@@ -228,18 +232,13 @@ let parse = (buffer: string): Element[] => {
     }
 
     let pushList = (): void => {
-        if (listBuffer && listParentElId) {
-            pushEl(listBuffer, listParentElId);
-            listBuffer = null;
-            listParentElId = null;
+        if (listBuffer.length != 0 && listParentRef) {
+            listParentRef.childs.push(...listBuffer);
+            listBuffer = [];
+            listParentRef = null;
         }
     }
 
-    let pushEl = (el: Element, targetid: string): void => {
-        for (let i: number = 0; i < elements.length; i++) {
-            if (findParentAndPush(el, elements[i], targetid)) return;
-        }
-    }
     /**
      * helper functions
      */
@@ -369,8 +368,6 @@ let parse = (buffer: string): Element[] => {
         }
 
         let isThisAnUnOrderedListHead = (idx: number, str: string): [ boolean, number ] => {
-            let outerindent: number = 0;
-
             if (idx >= str.length - 1 || 
                 (str[idx] != '*' && str[idx] != '-' && str[idx] != '+') ||
                 (str[idx + 1] != ' ' && str[idx + 1] != '\n')) {
@@ -378,6 +375,7 @@ let parse = (buffer: string): Element[] => {
             }
 
             let wsScanIdx: number = idx - 1;
+            let outerindent: number = 0;
 
             while (wsScanIdx > -1 && str[wsScanIdx] != '\n') {
                 let char: string = str[wsScanIdx];
@@ -618,7 +616,7 @@ let parse = (buffer: string): Element[] => {
                     innerindent = start + 3;
                 }
 
-                return [ spottedSeqs, outerindent, innerindent ];
+                return [ spottedSeqs, outerindent, innerindent - 1 ];
             },
 
             'orderedlistitem': (start: number, str: string): t_orderedListItemMatchResult | false => {
@@ -864,10 +862,6 @@ let parse = (buffer: string): Element[] => {
 
             'listitem': (seq: t_spottedSeq[], context: string, outerindent: number, innerindent: number): Element => {
                 let str: string = context.substring(seq[0].idx + 2, seq[1].idx);
-                
-                // headingi döndür ve match kısmında fixle daha uzun karakterdeki headler yanlış sonuç döndürecek
-                // nokta veya parantez bulana kadar tara
-
                 let li: Element = new Element('li', [], '', outerindent, innerindent);
 
                 let pEl: Element | null = paragraph(str, false);
@@ -876,22 +870,6 @@ let parse = (buffer: string): Element[] => {
                     pEl.tag = '';
                     li.appendChild(pEl)
                 }
-
-                //let head: string = context.substring(seq[0].idx, seq[0].idx + 1);
-                //let type: 'ul' | 'ol' = Number.isInteger(parseInt(head)) ? 'ol' : 'ul';
-
-                //if (!listBuffer || listBuffer.type != type) {
-                //    let containerAttributes: t_attribute[] = [];
-
-                //    if (type == 'ol') {
-                //        containerAttributes.push({ key: 'start', value: head });
-                //    }
-
-                //    let container: Element = new Element(type, containerAttributes);
-                //    container.appendChild(li);
-
-                //    return container;
-                //}
 
                 return li;
             },
@@ -1016,7 +994,7 @@ let parse = (buffer: string): Element[] => {
                 let extractFn: Function = extract('listitem');
                 let li: Element = extractFn(matchRes, context, outerindent, innerindent);
 
-                pushLi(li, 0, outerindent, innerindent, 'ul', paragraphRef.id);
+                pushLi(li, 0, outerindent, innerindent, 'ul', paragraphRef);
 
                 let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
@@ -1035,7 +1013,7 @@ let parse = (buffer: string): Element[] => {
                     let extractFn: Function = extract('listitem');
                     let li: Element = extractFn(matchRes, context, outerindent, innerindent);
 
-                    pushLi(li, head, outerindent, innerindent, 'ol', paragraphRef.id);
+                    pushLi(li, head, outerindent, innerindent, 'ol', paragraphRef);
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
@@ -1262,12 +1240,12 @@ let parse = (buffer: string): Element[] => {
 
         pushParagraphText();
 
-
-        if (checkListBuffer && paragraphEl.childs.length != 0 && listBuffer) {
-            let lbid: string | false = findListItem(listBuffer, null, outerindent);
+        if (checkListBuffer && paragraphEl.childs.length != 0 && listBuffer.length != 0) {
+            let lbid: string | false = findListItem(listBuffer[listBuffer.length - 1], null, outerindent);
 
             if (lbid) {
-                findAndPushEl(listBuffer, paragraphEl, lbid);
+            console.log('check')
+                findAndPushToChild(listBuffer[listBuffer.length - 1], paragraphEl, lbid);
                 return null;
             } else {
                 pushList();
@@ -1278,7 +1256,7 @@ let parse = (buffer: string): Element[] => {
     }
 
     while (curParIdx < paragraphs.length) {
-        let el: Element | null = paragraph(paragraphs[curParIdx], listBuffer ? true : false);
+        let el: Element | null = paragraph(paragraphs[curParIdx], listBuffer.length != 0 ? true : false);
         if (el && el.childs.length != 0) elements.push(el);
         curParIdx++;
     }

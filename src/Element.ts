@@ -30,8 +30,9 @@ export default class Element {
 
     emitHtml(level: number = 0): string {
         if (this.tag.trim() == '') {
-            this.childs.forEach((el: Element) => this.context += el.emitHtml());
-            return this.context;
+            let ctx: string = this.context;
+            this.childs.forEach((el: Element) => ctx += el.emitHtml());
+            return ctx;
         }
 
         let tab: string = '  '.repeat(level);

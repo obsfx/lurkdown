@@ -1,6 +1,6 @@
 import parse from './Parser'
 
-/*
+
 let str: string = `Emphasis, aka italics, with *asterisks* or _underscores_.
 
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
@@ -37,27 +37,64 @@ Some text to show that the reference links can follow later.
 [1]: http://slashdot.org
 [link text itself]: http://www.reddit.com//
 
+
 1. First ordered list item
 2. Another item
-   1. Actual numbers don't matter, just that it's a number
-   1. Ordered sub-list
+  * Unordered sub-list. 
+1. Actual numbers don't matter, just that it's a number
+  1. Ordered sub-list
 4. And another item.
-   1. test
-   1. test 2
+
+
 
    You can have properly indented paragraphs within list items. Notice the blank line above, and the leading spaces (at least one, but we'll use three here to also align the raw Markdown).
-`;
-   */
 
-let str: string = `
+   To have a line break without a paragraph, you will need to use two trailing spaces.
+   Note that this line is separate, but within the same paragraph.
+   (This is contrary to the typical GFM line break behaviour, where trailing spaces are not required.)
+
+* Unordered list can use asterisks
+- Or minuses
++ Or pluses
+
+1. Ordered sub-list
 1. First ordered list item
 2. Another item
-   1. Actual numbers don't matter, just that it's a number
-   1. Ordered sub-list
+   * Unorderedk
 4. And another item.
    1. test
    1. test 2
-
 `;
+
+//let str: string = `
+//1. Main
+//1. test 2
+//   4. test 3
+//   5. ses
+//      1. deneme 
+//      2. deneme
+//   6. test
+//      2. test
+//      3. test
+//         7. test
+//
+//         asfkljasflkjasfşlasjfşaskf
+//         saflkajsflşksajfşljasşlfajksfşlsajfkjsaf
+//
+//         asfasfasfasfasfasfasf
+//
+//         sakfjaslşfjasfjkasjf
+//+ testttt
+//- asfsafsaf
+//* asfsaffs
+//* safsafsf
+//  1. salkfjsalşfjs
+//  2. aslfkjasjfsaf
+//     5. aslkfjsajfsaf
+//     * aslşfkjasfjasf
+//     * asfsafsaf
+//       - aslkfjsalkfjsaf
+//    skjaslkşjsaşlkjasşljsaşssajks
+//`;
 
 parse(str);
