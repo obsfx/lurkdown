@@ -325,6 +325,15 @@ let parse = (buffer: string): Element[] => {
             return false;
         }
 
+        /**
+         * check the given string whether is consist of given char
+         */
+        let isConsistOf = (source: string, char: string): boolean => {
+            let charCount: number = source.split('').filter((c: string) => c == char).length;
+
+            return charCount > 0 && charCount == source.length ? true : false;
+        }
+
         let isThisTitle = (title: string): boolean => {
             if (title.length > 0 &&
                 ((title[0] != '"' || title[title.length - 1] != '"')  &&
@@ -658,22 +667,28 @@ let parse = (buffer: string): Element[] => {
                 return [ spottedSeqs, outerindent, innerindent - 1, head ];
             },
 
+
+            'alternativeheader': (char: string): t_spottedSeq[] | false => {
+                let line: string = getLine(lineStartIdxs[curParIdx][curLineIdx]);
+
+                let isValid: boolean = isConsistOf(line.trim(), char); 
+
+                if (!isValid) return false;
+
+                if (curLineIdx < lineStartIdxs[curParIdx].length - 1) {
+                    return [ { idx: lineStartIdxs[curParIdx][curLineIdx + 1], len: 1 } ];
+                } else {
+                    return [ { idx: paragraphs[curParIdx].length, len: 1 } ];
+                }
+            },
+
             'table': (): t_tableMatchResult => {
                 /**
                  * if the current line is not following by an another new line
                  * table can not be constructed so just return false
                  */
-                if (curLineIdx == paragraphs[curParIdx].length - 1) {
+                if (curLineIdx == lineStartIdxs[curParIdx].length - 1) {
                     return [ false, 0, 0, null ];
-                }
-
-                /**
-                 * check the given string whether is consist of given char
-                 */
-                let isConsistOf = (source: string, char: string): boolean => {
-                    let charCount: number = source.split('').filter((c: string) => c == char).length;
-
-                    return charCount > 0 && charCount == source.length ? true : false;
                 }
 
                 /**
@@ -749,7 +764,7 @@ let parse = (buffer: string): Element[] => {
                 let rowIdx: number = curLineIdx + 2;
                 let rowRange: number = 0;
 
-                while (rowIdx < paragraphs[curLineIdx].length) {
+                while (rowIdx < lineStartIdxs[curParIdx].length) {
                     let row: string = getLine(lineStartIdxs[curParIdx][rowIdx]);
 
                     if (ccount(row, '|') == 0) {
@@ -981,12 +996,55 @@ let parse = (buffer: string): Element[] => {
                 return [ table, nextStartingIdx ];
             }
 
+            case '=': {
+                let matchFn: Function = match('alternativeheader');
+                let res = matchFn('=');
+
+                if (!res) return false;
+
+                let [ nextStart ] = res;
+                let h1: Element = new Element('h1');
+
+                return [ h1, nextStart.idx ]
+            };
+
+            case '-': {
+                let matchFn: Function;
+                let res;
+
+                matchFn = match('unorderedlistitem');
+                res = matchFn(idx, context);
+
+                if (res) {
+                    let [ matchRes, outerindent, innerindent ] = res;
+
+                    let extractFn: Function = extract('listitem');
+                    let li: Element = extractFn(matchRes, context, outerindent, innerindent);
+
+                    pushLi(li, 0, outerindent, innerindent, 'ul', paragraphRef);
+
+                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                    return [ null, patternEnding.idx ];
+                }
+
+                matchFn = match('alternativeheader');
+                res = matchFn('-');
+
+                if (res) {
+                    let [ nextStart ] = res;
+                    let h2: Element = new Element('h2');
+
+                    return [ h2, nextStart.idx ];
+                }
+
+            } break;
+
             case '*':
-            case '-':
             case '+': {
                 let matchFn: Function = match('unorderedlistitem');
 
-                let res = matchFn(idx, context);
+                let res: t_unOrderedListItemMatchResult | false = matchFn(idx, context);
                 if (!res) return false;
 
                 let [ matchRes, outerindent, innerindent ] = res;
@@ -1163,10 +1221,10 @@ let parse = (buffer: string): Element[] => {
      * sub emphasises. If we have an element we append it to inlineEl and set idx to the next of the
      * pattern. If opRes returned false we just store the char at inlineTextBuffer and increate the idx.
      */
-    let inline = (context: string): Element => {
+    let inline = (context: string, tag: string = ''): Element => {
         let idx: number = 0;
         let inlineTextBuffer: string = '';
-        let inlineEl: Element = new Element('');
+        let inlineEl: Element = new Element(tag);
 
         let pushInlineText = (): void => {
             if (inlineTextBuffer != '') {
@@ -1198,14 +1256,16 @@ let parse = (buffer: string): Element[] => {
     let paragraph = (context: string, checkListBuffer: boolean = true): Element | null => {
         let idx: number = 0;
         let paragraphTextBuffer: string = '';
-        let paragraphEl: Element = new Element('p');
+
+        let paragraphEl: Element = new Element('div');
+        paragraphEl.attributes.push({ key: 'style', value: 'margin: 15px 0px;' });
 
         let outerindent: number = 0;
         let indentScanning: boolean = true;
 
-        let pushParagraphText = () => {
+        let pushParagraphText = (tag: string = '') => {
             if (paragraphTextBuffer != '') {
-                let el: Element = inline(paragraphTextBuffer);
+                let el: Element = inline(paragraphTextBuffer.trim(), tag);
                 paragraphTextBuffer = '';
 
                 if (el.tag != '' || el.context != '' || el.childs.length != 0) {
@@ -1226,10 +1286,15 @@ let parse = (buffer: string): Element[] => {
             let opRes: t_operateResult | false = operate(char, idx, context, paragraphEl);
 
             if (opRes) {
-                pushParagraphText();
-
                 let [ el, ridx ] = opRes;
-                if (el) paragraphEl.appendChild(el);
+                let tag: string = '';
+
+                if (el && (el.tag == 'h1' || el.tag == 'h2')) tag = el.tag;
+
+                pushParagraphText(tag);
+
+                if (el && el.tag != 'h1' && el.tag != 'h2') paragraphEl.appendChild(el);
+
                 idx = ridx;
                 continue;
             }
@@ -1244,7 +1309,6 @@ let parse = (buffer: string): Element[] => {
             let lbid: string | false = findListItem(listBuffer[listBuffer.length - 1], null, outerindent);
 
             if (lbid) {
-            console.log('check')
                 findAndPushToChild(listBuffer[listBuffer.length - 1], paragraphEl, lbid);
                 return null;
             } else {
@@ -1256,6 +1320,7 @@ let parse = (buffer: string): Element[] => {
     }
 
     while (curParIdx < paragraphs.length) {
+        curLineIdx = 0;
         let el: Element | null = paragraph(paragraphs[curParIdx], listBuffer.length != 0 ? true : false);
         if (el && el.childs.length != 0) elements.push(el);
         curParIdx++;
@@ -1298,11 +1363,24 @@ let parse = (buffer: string): Element[] => {
         }
     }
 
-    // let t = check(['[', '! ', ']', '(', '! ', ' ', '"', '"', ')'], index);
-    // console.log(t);
-    //
+    let temp: string = `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+            <meta charset="utf-8" />
+            <meta http-equiv="x-ua-compatible" content="ie=edge" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title></title>
+        </head>
+        <body>
+            {BODY}
+        </body>
+    </html>
+    `
 
-    elements.forEach((e: Element) => console.log(e.emitHtml()));
+    let htmlcode: string = elements.reduce((prev: string, current: Element) => prev += current.emitHtml(), '')
+
+    console.log(temp.replace('{BODY}', htmlcode));
     //console.log(listBuffer);
     return elements;
 }

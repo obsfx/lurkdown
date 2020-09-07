@@ -2,19 +2,15 @@ import parse from './Parser'
 
 
 let str: string = `Emphasis, aka italics, with *asterisks* or _underscores_.
-
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
-
 Combined emphasis with **asterisks and _underscores_**.
 
 Strikethrough uses two tildes. ~~Scratch this.~~
-
 | Tables        | Are           | Cool  |
 | ------------- |:-------------:| -----:|
 | col 3 is      | right-aligned | $1600 |
 | col 2 is      | centered      |   $12 |
 | zebra stripes | are neat      |    $1 |
-
 [I'm an inline-style link](https://www.google.com)
 
 [I'm an inline-style link with title](https://www.google.com "Google's Homepage")
@@ -64,37 +60,21 @@ Some text to show that the reference links can follow later.
 4. And another item.
    1. test
    1. test 2
+
+
+Alt-H1
+======
+
+Alt-H2
+------
 `;
 
-//let str: string = `
-//1. Main
-//1. test 2
-//   4. test 3
-//   5. ses
-//      1. deneme 
-//      2. deneme
-//   6. test
-//      2. test
-//      3. test
-//         7. test
-//
-//         asfkljasflkjasfşlasjfşaskf
-//         saflkajsflşksajfşljasşlfajksfşlsajfkjsaf
-//
-//         asfasfasfasfasfasfasf
-//
-//         sakfjaslşfjasfjkasjf
-//+ testttt
-//- asfsafsaf
-//* asfsaffs
-//* safsafsf
-//  1. salkfjsalşfjs
-//  2. aslfkjasjfsaf
-//     5. aslkfjsajfsaf
-//     * aslşfkjasfjasf
-//     * asfsafsaf
-//       - aslkfjsalkfjsaf
-//    skjaslkşjsaşlkjasşljsaşssajks
-//`;
+
+/*
+let str: string = `
+test
+---
+`;
+*/
 
 parse(str);

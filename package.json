@@ -9,6 +9,7 @@
   },
   "scripts": {
     "run": "ts-node ./src/index.ts",
+    "test-html": "ts-node ./src/index.ts > ./index.html",
     "inspect": "node --inspect -r ts-node/register ./src/index.ts",
     "build": "tsc -b",
     "watch": "tsc -b --watch"
