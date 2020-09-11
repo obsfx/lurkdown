@@ -1,5 +1,5 @@
-import parse from './Parser'
-
+import Parser from './parser'
+import Element from './parser/Element'
 
 let str: string = `Emphasis, aka italics, with *asterisks* or _underscores_.
 Strong emphasis, aka bold, with **asterisks** or __underscores__.
@@ -77,4 +77,7 @@ test
 `;
 */
 
-parse(str);
+let MDParser: Parser = new Parser(str);
+let body: Element = MDParser.parse();
+
+console.log(body.emitHtml());
