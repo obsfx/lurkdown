@@ -26,15 +26,20 @@ export default class Inline {
     private textBuffer: string;
     private conBuffer: Element;
 
+    private baseindent: number;
+
     private refs: t_ref[];
     private reflinks: t_reflink[];
 
-    constructor(input: string, containerTag: string) {
+    constructor(input: string, containerTag: string, baseindent: number = 0) {
         this.input = input;
 
         this.idx = 0;
         this.textBuffer = '';
         this.conBuffer = new Element(containerTag);
+
+        this.baseindent = baseindent;
+        console.log(this.input, this.baseindent, '--');
 
         this.refs = [];
         this.reflinks = [];
@@ -50,32 +55,32 @@ export default class Inline {
             }
 
             case '-':
-                case '*': {
-                if ((this.input[this.idx] == '*' && this.input[this.idx + 1] == '*') ||
-                    (this.input[this.idx] == '_' && this.input[this.idx + 1] == '_')) {
-                    let matchRes: t_spottedSeq[] | false = Emphasis.match('bold', this.idx, this.input);
-                    if (!matchRes) return false;
+            case '*': {
+            if ((this.input[this.idx] == '*' && this.input[this.idx + 1] == '*') ||
+                (this.input[this.idx] == '_' && this.input[this.idx + 1] == '_')) {
+                let matchRes: t_spottedSeq[] | false = Emphasis.match('bold', this.idx, this.input);
+                if (!matchRes) return false;
 
-                    let strong: Element = Emphasis.extract('strong', matchRes[0], matchRes[1], this.input);
-                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+                let strong: Element = Emphasis.extract('strong', matchRes[0], matchRes[1], this.input);
+                let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
-                    return {
-                        el: strong,
-                        nextStartingIdx: patternEnding.idx + patternEnding.len
-                    }
-                } else {
-                    let matchRes: t_spottedSeq[] | false = Emphasis.match('italic', this.idx, this.input);
-                    if (!matchRes) return false;
+                return {
+                    el: strong,
+                    nextStartingIdx: patternEnding.idx + patternEnding.len
+                }
+            } else {
+                let matchRes: t_spottedSeq[] | false = Emphasis.match('italic', this.idx, this.input);
+                if (!matchRes) return false;
 
-                    let em: Element = Emphasis.extract('em', matchRes[0], matchRes[1], this.input);
-                    let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+                let em: Element = Emphasis.extract('em', matchRes[0], matchRes[1], this.input);
+                let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
-                    return {
-                        el: em,
-                        nextStartingIdx: patternEnding.idx + patternEnding.len
-                    }
+                return {
+                    el: em,
+                    nextStartingIdx: patternEnding.idx + patternEnding.len
                 }
             }
+        }
 
             case '~': {
                 if (this.input[this.idx + 1] == '~') {

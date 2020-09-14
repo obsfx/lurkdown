@@ -5,6 +5,7 @@ import {
     t_inlineParseResult,
     t_operateResult,
     t_spottedSeq,
+    t_listMatch
 } from './types'
 
 import Inline from './Inline'
@@ -13,6 +14,7 @@ import Utils from './Utils'
 
 import Table from './components/Table'
 import AltHeading from './components/AltHeading'
+import List from './components/List'
 
 export default class Parser {
     private input: string;
@@ -23,12 +25,13 @@ export default class Parser {
     public idx: number;
     public curLineIdx: number;
     public lineStartIdxs: number[];
+    private baseindent: number;
 
     // donethings inside of inline
     public refMap: Map<string, t_refUrlTitlePair>;
     public reflinks: t_reflink[];
 
-    constructor(input: string) {
+    constructor(input: string, baseindent: number = 0) {
         this.input = input;
         this.textBuffer = '';
         this.body = new Element('');
@@ -37,6 +40,7 @@ export default class Parser {
         this.idx = 0;
         this.curLineIdx = 0;
         this.lineStartIdxs = Utils.getLineStartIdxs(this.input);
+        this.baseindent = baseindent;
 
         this.refMap = new Map();
         this.reflinks = [];
@@ -59,14 +63,15 @@ export default class Parser {
                 if (!matchRes) return false;
 
                 let table: Element = Table.extract(this.curLineIdx, 
-                this.lineStartIdxs, this.input, rowRange, columnCount, textAligns);
+                this.lineStartIdxs, this.input, rowRange, columnCount, textAligns || []);
 
-                let rowStartLineIdx: number = this.curLineIdx + rowRange + 2;
-                let nextStartingIdx: number = rowStartLineIdx < this.lineStartIdxs.length ?
-                    this.lineStartIdxs[rowStartLineIdx] :
+                this.curLineIdx += rowRange + 2;
+                let nextStartingIdx: number = this.curLineIdx < this.lineStartIdxs.length ?
+                    this.lineStartIdxs[this.curLineIdx] :
                     this.input.length;
 
                 this.conBuffer.childs.pop();
+
                 return {
                     type: 'element',
                     el: table,
@@ -114,7 +119,8 @@ export default class Parser {
 
             default: {
                 if (Number.isInteger(parseInt(this.input[this.idx]))) {
-
+                    let listMatchRes: t_listMatch[] | false = List.match(this.idx, this.input);
+                    console.log(listMatchRes);
                 }
             } break;
         }
@@ -143,8 +149,8 @@ export default class Parser {
     }
 
     private pushTextBuffer(containerTag: string = ''): void {
-        if (this.textBuffer = '') {
-            let InlineParser: Inline = new Inline(this.textBuffer, containerTag);
+        if (this.textBuffer != '') {
+            let InlineParser: Inline = new Inline(this.textBuffer, containerTag, this.baseindent);
             this.textBuffer = '';
 
             let inlineParseRes: t_inlineParseResult = InlineParser.parse();
@@ -175,6 +181,7 @@ export default class Parser {
                     if (type == 'inlinecontainer') {
                         this.pushTextBuffer(el.tag);
                     } else {
+                        this.pushTextBuffer();
                         this.conBuffer.appendChild(el);
                     }
                 }
@@ -185,7 +192,7 @@ export default class Parser {
                 this.idx++;
             }
 
-            if (Utils.isBlankLine(this.idx, this.input) && this.conBuffer.childs.length != 0) {
+            if (Utils.isBlankLine(this.idx, this.input)) {
                 this.pushTextBuffer();
                 this.curLineIdx += 2;
                 this.idx = this.lineStartIdxs[this.curLineIdx];
@@ -193,6 +200,9 @@ export default class Parser {
                 this.conBuffer = Utils.getSection();
             }
         }
+
+        this.pushTextBuffer();
+        if (this.conBuffer.childs.length != 0) this.body.appendChild(this.conBuffer);
 
         for (let i: number = 0; i < this.reflinks.length; i++) {
             let ref: t_refUrlTitlePair | undefined = this.refMap.get(this.reflinks[i].key);

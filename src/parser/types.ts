@@ -16,3 +16,5 @@ export type t_reflink = { elid: string, key: string, keyEl: Element, strEl: Elem
 export type t_textAlign = { align: 'left' | 'right' | 'center' };
 //          t_tableMatchResult   checkResult, rowsRange, columnCount, textAligns
 export type t_tableMatchResult = [ boolean, number, number, t_textAlign[] | null ];
+
+export type t_listMatch = { type: 'ordered' | 'unordered', start: number, end: number, outerindent: number, fullindent: number }

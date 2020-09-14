@@ -22,11 +22,11 @@ export default abstract class Utils {
     }
 
     public static ccount(source: string, char: string): number {
-        return source.split('').filter((c: string) => c == char).length
+        return source.split('').filter((c: string) => c == char).length;
     }
 
     public static isBlankLine(start: number, str: string): boolean {
-        return start < str.length - 1 && str[start] == '\n' && str[start + 1] == '\n'
+        return start < str.length - 1 && str[start] == '\n' && str[start + 1] == '\n';
     }
 
     public static getLine(start: number, str: string): string {
@@ -42,6 +42,17 @@ export default abstract class Utils {
         return line;
     }
 
+    public static getLineBounds(str: string, lineIdx: number, lineStartIdxs: number[]): t_spottedSeq[] {
+        let bounds: t_spottedSeq[] = [];
+
+        bounds.push({ idx: lineStartIdxs[lineIdx], len: 0 });
+
+        if (lineIdx + 1 < lineStartIdxs.length) bounds.push({ idx: lineStartIdxs[lineIdx + 1], len: 0 });
+        else bounds.push({ idx: str.length, len: 0 });
+
+        return bounds;
+    }
+
     public static getBetween(opening: t_spottedSeq, closing: t_spottedSeq, context: string): string {
         return context.substring(opening.idx + opening.len, closing.idx)
     }
@@ -53,7 +64,7 @@ export default abstract class Utils {
         let seqIdx: number = 0;
         let spottedSeqs: t_spottedSeq[] = [];
 
-        while (idx < context.length && seqIdx < seq.length) {
+        while (idx < context.length && !this.isBlankLine(idx, context) && seqIdx < seq.length) {
             if (terminators.indexOf(seq[seqIdx]) > -1) return false;
 
             if (seq[seqIdx] == context.substring(idx, idx + seq[seqIdx].length)) {
