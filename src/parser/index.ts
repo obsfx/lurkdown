@@ -86,6 +86,8 @@ export default class Parser {
                 let [ nextStart ] = matchRes;
                 let h1: Element = new Element('h1');
 
+                this.curLineIdx++;
+
                 return {
                     type: 'inlinecontainer',
                     el: h1,
@@ -100,6 +102,8 @@ export default class Parser {
                 if (altHeadingMathRes) {
                     let [ nextStart ] = altHeadingMathRes;
                     let h2: Element = new Element('h2');
+
+                    this.curLineIdx++;
 
                     return {
                         type: 'inlinecontainer',
@@ -194,7 +198,7 @@ export default class Parser {
 
             if (Utils.isBlankLine(this.idx, this.input)) {
                 this.pushTextBuffer();
-                this.curLineIdx += 2;
+                this.curLineIdx += 1;
                 this.idx = this.lineStartIdxs[this.curLineIdx];
                 this.body.appendChild(this.conBuffer);
                 this.conBuffer = Utils.getSection();

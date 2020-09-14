@@ -54,7 +54,7 @@ export default class Inline {
                 }
             }
 
-            case '-':
+            case '_':
             case '*': {
             if ((this.input[this.idx] == '*' && this.input[this.idx + 1] == '*') ||
                 (this.input[this.idx] == '_' && this.input[this.idx + 1] == '_')) {
