@@ -124,7 +124,16 @@ export default class Parser {
             default: {
                 if (Number.isInteger(parseInt(this.input[this.idx]))) {
                     let listMatchRes: t_listMatch[] | false = List.match(this.idx, this.input);
-                    console.log(listMatchRes);
+                    if (listMatchRes) {
+                        console.log('--------------------------------------------');
+                        listMatchRes.forEach((k: t_listMatch) => {
+                            console.log('[')
+                            console.log(k.type);
+                            console.log(this.input.substring(k.start, k.end));
+                            console.log(']')
+                        })
+                        console.log('--------------------------------------------');
+                    }
                 }
             } break;
         }

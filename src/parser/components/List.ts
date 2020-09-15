@@ -58,16 +58,18 @@ export default class List {
         return false;
     }
 
-    private static findEndOfLiContext(start: number, str: string, parentIndent: number): number {
+    private static findEndOfLiContext(start: number, str: string, parent: t_listHeadRes): number {
         let idx: number = start;
 
         while (idx < str.length) {
-            if (this.isListHead(idx, str)) {
+            let anotherhead: t_listHeadRes | false = this.isListHead(idx, str);
+
+            if (anotherhead && anotherhead.outerindent < parent.fullindent) {
                 return idx;
             }
 
             if (Utils.isBlankLine(idx, str)) {
-                let isThereAnyItem: t_lookRes | false = this.lookForParOrListItem(idx, str, parentIndent);
+                let isThereAnyItem: t_lookRes | false = this.lookForParOrListItem(idx, str, parent);
 
                 if (!isThereAnyItem) return idx;
                 else if (isThereAnyItem.type == 'li')  return isThereAnyItem.idx;
@@ -82,19 +84,31 @@ export default class List {
         return idx;
     }
 
-    private static lookForParOrListItem(start: number, str: string, parentIndent: number): t_lookRes | false {
+    private static lookForParOrListItem(start: number, str: string, parent: t_listHeadRes): t_lookRes | false {
         let idx: number = start;
         let indent: number = 0;
 
         while (idx < str.length) {
             if (str[idx] == '\n') indent = 0;
 
-            if (str[idx] == '\n' && str[idx] == ' ') {
-                if (this.isListHead(idx, str)) return { type: 'li', idx }
-                else if (indent >= parentIndent) return { type: 'par', idx }
-                else return false;
+            if (str[idx] != '\n' && str[idx] != ' ') {
+                let anotherhead: t_listHeadRes | false = this.isListHead(idx, str);
+
+                if (anotherhead) {
+                    if (anotherhead.outerindent != parent.outerindent && 
+                        anotherhead.outerindent >= parent.fullindent) {
+                        return { type: 'par', idx }
+                    } else {
+                        return { type: 'li', idx }
+                    }
+                } else if (indent >= parent.fullindent) {
+                    return { type: 'par', idx }
+                } else {
+                    return false;
+                }
             }
 
+            indent++;
             idx++;
         }
 
@@ -105,16 +119,20 @@ export default class List {
         let listMatches: t_listMatch[] = [];
 
         let idx: number = start;
+        let headType: string | null = null;
 
         while(idx < str.length) {
             let head: t_listHeadRes | false = this.isListHead(idx, str);
             if (!head) break;
 
+            if (!headType) headType = head.type;
+            else if (headType != head.type) break;
+
             let start: number = idx;
 
             idx = head.type == 'ordered' ? idx + 2 : idx + 1;
 
-            let end: number = this.findEndOfLiContext(idx, str, head.fullindent);
+            let end: number = this.findEndOfLiContext(idx, str, head);
 
             listMatches.push({ 
                 type: head.type, 
