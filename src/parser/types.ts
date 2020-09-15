@@ -18,3 +18,4 @@ export type t_textAlign = { align: 'left' | 'right' | 'center' };
 export type t_tableMatchResult = [ boolean, number, number, t_textAlign[] | null ];
 
 export type t_listMatch = { type: 'ordered' | 'unordered', start: number, end: number, outerindent: number, fullindent: number }
+export type t_listExtractRes = { el: Element, refMap: Map<string, t_refUrlTitlePair>, reflinks: t_reflink[] }

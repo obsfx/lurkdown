@@ -5,7 +5,8 @@ import {
     t_inlineParseResult,
     t_operateResult,
     t_spottedSeq,
-    t_listMatch
+    t_listMatch,
+    t_listExtractRes
 } from './types'
 
 import Inline from './Inline'
@@ -96,9 +97,37 @@ export default class Parser {
             }
 
             case '-': {
-                // list
+                let listMatchRes: t_listMatch[] | false = List.match(this.idx, this.input);
+
+                if (listMatchRes) {
+                    let listExtractRes: t_listExtractRes = List.extract(listMatchRes, this.input);
+
+                    listExtractRes.refMap.forEach((value: t_refUrlTitlePair, key: string) => {
+                        if (!this.refMap.get(key)) this.refMap.set(key, value);
+                    });
+
+                    this.reflinks.push(...listExtractRes.reflinks);
+
+                    let start: number = listMatchRes[0].start;
+                    let end: number = listMatchRes[listMatchRes.length - 1].end;
+
+                    let wholeListStr: string = this.input.substr(start, end);
+
+                    let newLineCount: number = wholeListStr
+                    .split('')
+                    .filter((char: string) => char == '\n').length;
+
+                    this.curLineIdx += newLineCount;
+
+                    return {
+                        type: 'element',
+                        el: listExtractRes.el,
+                        nextStartingIdx: end
+                    }
+                }
+
                 let altHeadingMathRes: t_spottedSeq[] | false = AltHeading.match('-', this.curLineIdx, this.lineStartIdxs, this.input);
-                
+
                 if (altHeadingMathRes) {
                     let [ nextStart ] = altHeadingMathRes;
                     let h2: Element = new Element('h2');
@@ -117,28 +146,78 @@ export default class Parser {
 
             case '*':
             case '+': {
-                // list
-                return false;
+                let listMatchRes: t_listMatch[] | false = List.match(this.idx, this.input);
+                if (!listMatchRes) return false;
+
+                let listExtractRes: t_listExtractRes = List.extract(listMatchRes, this.input);
+
+                listExtractRes.refMap.forEach((value: t_refUrlTitlePair, key: string) => {
+                    if (!this.refMap.get(key)) this.refMap.set(key, value);
+                });
+
+                this.reflinks.push(...listExtractRes.reflinks);
+
+                let start: number = listMatchRes[0].start;
+                let end: number = listMatchRes[listMatchRes.length - 1].end;
+
+                let wholeListStr: string = this.input.substr(start, end);
+
+                let newLineCount: number = wholeListStr
+                .split('')
+                .filter((char: string) => char == '\n').length;
+
+                this.curLineIdx += newLineCount;
+
+                return {
+                    type: 'element',
+                    el: listExtractRes.el,
+                    nextStartingIdx: end
+                }
             }
 
             default: {
                 if (Number.isInteger(parseInt(this.input[this.idx]))) {
                     let listMatchRes: t_listMatch[] | false = List.match(this.idx, this.input);
+
                     if (listMatchRes) {
-                        console.log('--------------------------------------------');
-                        listMatchRes.forEach((k: t_listMatch) => {
-                            console.log('[')
-                            console.log(k.type);
-                            console.log(this.input.substring(k.start, k.end));
-                            console.log(']')
-                        })
-                        console.log('--------------------------------------------');
+                        let listExtractRes: t_listExtractRes = List.extract(listMatchRes, this.input);
+
+                        listExtractRes.refMap.forEach((value: t_refUrlTitlePair, key: string) => {
+                            if (!this.refMap.get(key)) this.refMap.set(key, value);
+                        });
+
+                        this.reflinks.push(...listExtractRes.reflinks);
+
+                        let start: number = listMatchRes[0].start;
+                        let end: number = listMatchRes[listMatchRes.length - 1].end;
+
+                        let wholeListStr: string = this.input.substr(start, end);
+
+                        let newLineCount: number = wholeListStr
+                        .split('')
+                        .filter((char: string) => char == '\n').length;
+
+                        this.curLineIdx += newLineCount;
+
+                        return {
+                            type: 'element',
+                            el: listExtractRes.el,
+                            nextStartingIdx: end
+                        }
                     }
                 }
             } break;
         }
 
         return false;
+    }
+
+    public getRefMap(): Map<string, t_refUrlTitlePair> {
+        return this.refMap;
+    }
+
+    public getReflinks(): t_reflink[] {
+        return this.reflinks;
     }
 
     private resolveReflink(el: Element, reflink: t_reflink, ref: t_refUrlTitlePair): boolean {
@@ -183,7 +262,7 @@ export default class Parser {
         }
     }
 
-    public parse(): Element {
+    public parse(resolveReflinks: boolean = true, containerTag: boolean = true): Element {
         while (this.idx < this.input.length) {
             let opRes: t_operateResult | false = this.operate();
 
@@ -209,17 +288,24 @@ export default class Parser {
                 this.pushTextBuffer();
                 this.curLineIdx += 1;
                 this.idx = this.lineStartIdxs[this.curLineIdx];
+                if (!containerTag) this.conBuffer.tag = '';
                 this.body.appendChild(this.conBuffer);
                 this.conBuffer = Utils.getSection();
             }
         }
 
         this.pushTextBuffer();
-        if (this.conBuffer.childs.length != 0) this.body.appendChild(this.conBuffer);
 
-        for (let i: number = 0; i < this.reflinks.length; i++) {
-            let ref: t_refUrlTitlePair | undefined = this.refMap.get(this.reflinks[i].key);
-            if (ref) this.resolveReflink(this.body, this.reflinks[i], ref);
+        if (this.conBuffer.childs.length != 0) {
+            if (!containerTag) this.conBuffer.tag = '';
+            this.body.appendChild(this.conBuffer);
+        }
+
+        if (resolveReflinks) {
+            for (let i: number = 0; i < this.reflinks.length; i++) {
+                let ref: t_refUrlTitlePair | undefined = this.refMap.get(this.reflinks[i].key);
+                if (ref) this.resolveReflink(this.body, this.reflinks[i], ref);
+            }
         }
 
         return this.body;

@@ -1,11 +1,16 @@
-//import Element from '../Element'
+import Parser from '../';
+import Element from '../Element'
 import Utils from '../Utils'
 import {
-    t_listMatch
+    t_listMatch,
+    t_listExtractRes,
+    t_refUrlTitlePair,
+    t_reflink
 } from '../types'
 
 type t_listHeadRes = { type: 'ordered' | 'unordered', outerindent: number, fullindent: number };
 type t_lookRes = { type: 'li' | 'par', idx: number };
+type t_extractListItemRes = { head: string, context: string };
 
 export default class List {
     private static isListHead(start: number, str: string): t_listHeadRes | false {
@@ -32,7 +37,7 @@ export default class List {
 
             return { type: 'ordered', outerindent, fullindent: outerindent + innerindent + 2 }
 
-        } else if ((str[start] == '*' || str[start] == '-' || str[start] == '*') &&
+        } else if ((str[start] == '*' || str[start] == '-' || str[start] == '+') &&
                     (str[start + 1] == ' ' || str[start + 1] == '\n')) {
 
             let oidx: number = start - 1;
@@ -64,7 +69,7 @@ export default class List {
         while (idx < str.length) {
             let anotherhead: t_listHeadRes | false = this.isListHead(idx, str);
 
-            if (anotherhead && anotherhead.outerindent < parent.fullindent) {
+            if (anotherhead && anotherhead.outerindent < parent.fullindent - 1) {
                 return idx;
             }
 
@@ -96,12 +101,12 @@ export default class List {
 
                 if (anotherhead) {
                     if (anotherhead.outerindent != parent.outerindent && 
-                        anotherhead.outerindent >= parent.fullindent) {
+                        anotherhead.outerindent >= parent.fullindent - 1) {
                         return { type: 'par', idx }
                     } else {
                         return { type: 'li', idx }
                     }
-                } else if (indent >= parent.fullindent) {
+                } else if (indent >= parent.fullindent - 1) {
                     return { type: 'par', idx }
                 } else {
                     return false;
@@ -150,9 +155,62 @@ export default class List {
             listMatches
     }
 
-    /*
-    public static extract(seqs: t_listMatch[], context): Element {
+    private static extractListItem(seq: t_listMatch, context: string): t_extractListItemRes {
+        let str: string = context.substring(seq.start, seq.end);
+        let head: string = '';
+        let headEnding: number = 0;
 
+        for (let i: number = 0; i < str.length; i++) {
+            let char: string = str[i];
+
+            if (seq.type == 'ordered' && 
+                (char == ')' || char == '.')) {
+                head = str.substring(0, i);
+                headEnding = i + 1;
+                break;
+            } else if (seq.type == 'unordered' &&
+                       (char == '*' || char == '-' || char == '+')) {
+                head = char;
+                headEnding = i + 1;
+                break;
+            }
+        }
+
+        return { head, context: str.substring(headEnding) }
     }
-    */
+
+    public static extract(seqs: t_listMatch[], context: string): t_listExtractRes {
+        let refMap: Map<string, t_refUrlTitlePair> = new Map();
+        let reflinks: t_reflink[] = [];
+
+        let start: string | null = null;
+        let type: 'ol' | 'ul' = seqs[0].type == 'ordered' ? 'ol' : 'ul';
+
+        let list: Element = new Element(type);
+
+        for (let i: number = 0; i < seqs.length; i++) {
+            let listPieces: t_extractListItemRes = this.extractListItem(seqs[i], context);
+            if (type == 'ol' && !start) {
+                start = listPieces.head;
+                list.attributes = [ { key: 'start', value: start } ];
+            }
+
+            let listContextParser: Parser = new Parser(listPieces.context, seqs[i].fullindent);
+            let listContext: Element = listContextParser.parse(false, false);
+
+            let listRefMap: Map<string, t_refUrlTitlePair> = listContextParser.getRefMap();
+            listRefMap.forEach((value: t_refUrlTitlePair, key: string ) => {
+                if (!refMap.get(key)) refMap.set(key, value);
+            });
+
+            reflinks.push(...listContextParser.getReflinks());
+
+            let li: Element = new Element('li');
+            li.appendChild(listContext);
+
+            list.appendChild(li);
+        }
+
+        return { el: list, refMap, reflinks }
+    }
 }
