@@ -10,8 +10,6 @@ export default abstract class AltHeading {
         let isValid: boolean = Utils.isConsistOf(line.trim(), type);
         if (!isValid) return false;
 
-        return curLineIdx < lineStartIdxs.length - 1 ?
-            [ { idx: lineStartIdxs[curLineIdx + 1], len: 0 } ] :
-            [ { idx: str.length, len: 0 } ];
+        return [ { idx: lineStartIdxs[curLineIdx] + line.length, len: 0 } ];
     }
 }

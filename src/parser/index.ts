@@ -87,8 +87,6 @@ export default class Parser {
                 let [ nextStart ] = matchRes;
                 let h1: Element = new Element('h1');
 
-                this.curLineIdx++;
-
                 return {
                     type: 'inlinecontainer',
                     el: h1,
@@ -111,7 +109,7 @@ export default class Parser {
                     let start: number = listMatchRes[0].start;
                     let end: number = listMatchRes[listMatchRes.length - 1].end;
 
-                    let wholeListStr: string = this.input.substr(start, end);
+                    let wholeListStr: string = this.input.substring(start, end);
 
                     let newLineCount: number = wholeListStr
                     .split('')
@@ -131,8 +129,6 @@ export default class Parser {
                 if (altHeadingMathRes) {
                     let [ nextStart ] = altHeadingMathRes;
                     let h2: Element = new Element('h2');
-
-                    this.curLineIdx++;
 
                     return {
                         type: 'inlinecontainer',
@@ -160,7 +156,7 @@ export default class Parser {
                 let start: number = listMatchRes[0].start;
                 let end: number = listMatchRes[listMatchRes.length - 1].end;
 
-                let wholeListStr: string = this.input.substr(start, end);
+                let wholeListStr: string = this.input.substring(start, end);
 
                 let newLineCount: number = wholeListStr
                 .split('')
@@ -191,7 +187,7 @@ export default class Parser {
                         let start: number = listMatchRes[0].start;
                         let end: number = listMatchRes[listMatchRes.length - 1].end;
 
-                        let wholeListStr: string = this.input.substr(start, end);
+                        let wholeListStr: string = this.input.substring(start, end);
 
                         let newLineCount: number = wholeListStr
                         .split('')
