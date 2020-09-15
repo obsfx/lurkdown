@@ -51,7 +51,7 @@ export default abstract class RefLink {
 
         el.appendChild(new Element('', [], '['));
 
-        let InlineParser: Inline = new Inline(str || '', '');
+        let InlineParser: Inline = new Inline(key, '');
         let inlineParseRes: t_inlineParseResult = InlineParser.parse();
         let keyEl: Element = inlineParseRes.el;
         el.appendChild(keyEl);

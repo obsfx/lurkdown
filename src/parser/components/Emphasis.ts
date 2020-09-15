@@ -39,7 +39,7 @@ export default abstract class Emphasis {
         return spottedSeqs;
     }
 
-    public static extract(type: string, opening: t_spottedSeq, closing: t_spottedSeq, context: string): Element {
+    public static extract(type: string, opening: t_spottedSeq, closing: t_spottedSeq, context: string): t_inlineParseResult {
         let inlineText: string = Utils.getBetween(opening, closing, context);
         let el: Element = new Element(type);
 
@@ -52,6 +52,10 @@ export default abstract class Emphasis {
 
         el.appendChild(inlineParseRes.el);
 
-        return el;
+        return {
+            el,
+            refs: inlineParseRes.refs,
+            reflinks: inlineParseRes.reflinks
+        }
     }
 }

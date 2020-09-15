@@ -61,7 +61,13 @@ export default class Inline {
                 let matchRes: t_spottedSeq[] | false = Emphasis.match('bold', this.idx, this.input);
                 if (!matchRes) return false;
 
-                let strong: Element = Emphasis.extract('strong', matchRes[0], matchRes[1], this.input);
+                let emphasisRes: t_inlineParseResult = Emphasis.extract('strong', matchRes[0], matchRes[1], this.input);
+
+                this.refs.push(...emphasisRes.refs);
+                this.reflinks.push(...emphasisRes.reflinks);
+
+                let strong: Element = emphasisRes.el;
+
                 let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
                 return {
@@ -72,7 +78,13 @@ export default class Inline {
                 let matchRes: t_spottedSeq[] | false = Emphasis.match('italic', this.idx, this.input);
                 if (!matchRes) return false;
 
-                let em: Element = Emphasis.extract('em', matchRes[0], matchRes[1], this.input);
+                let emphasisRes: t_inlineParseResult = Emphasis.extract('em', matchRes[0], matchRes[1], this.input);
+
+                this.refs.push(...emphasisRes.refs);
+                this.reflinks.push(...emphasisRes.reflinks);
+
+                let em: Element =  emphasisRes.el;
+
                 let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
                 return {
@@ -87,7 +99,12 @@ export default class Inline {
                     let matchRes: t_spottedSeq[] | false = Emphasis.match('scratch', this.idx, this.input);
                     if (!matchRes) return false;
 
-                    let del: Element = Emphasis.extract('del', matchRes[0], matchRes[1], this.input);
+                    let emphasisRes: t_inlineParseResult = Emphasis.extract('del', matchRes[0], matchRes[1], this.input);
+
+                    this.refs.push(...emphasisRes.refs);
+                    this.reflinks.push(...emphasisRes.reflinks);
+
+                    let del: Element =  emphasisRes.el;
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
                     return {
