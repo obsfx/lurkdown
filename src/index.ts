@@ -59,6 +59,16 @@ Alt-H1
 ======
 Alt-H2
 ------
+
+  > Blockquotes are very handy in email to emulate reply text.
+ This line is part of the same quote. [You can use numbers for reference-style link definitions][1]
+ | Tables        | Are           | Cool  |
+ | ------------- |:-------------:| -----:|
+ | col 3 is      | right-aligned | $1600 |
+ | col 2 is      | centered      |   $12 |
+ | zebra stripes | are neat      |    $1 |
+
+ test
 `;
 
 

@@ -26,20 +26,15 @@ export default class Inline {
     private textBuffer: string;
     private conBuffer: Element;
 
-    private baseindent: number;
-
     private refs: t_ref[];
     private reflinks: t_reflink[];
 
-    constructor(input: string, containerTag: string, baseindent: number = 0) {
+    constructor(input: string, containerTag: string) {
         this.input = input;
 
         this.idx = 0;
         this.textBuffer = '';
         this.conBuffer = new Element(containerTag);
-
-        this.baseindent = baseindent;
-        console.log(this.input, this.baseindent, '--');
 
         this.refs = [];
         this.reflinks = [];
@@ -181,6 +176,13 @@ export default class Inline {
 
     public parse(): t_inlineParseResult {
         while (this.idx < this.input.length) {
+            if (this.input[this.idx] == '\\') {
+                this.textBuffer += this.input[this.idx];
+                this.idx++;
+                this.textBuffer += this.input[this.idx];
+                this.idx++;
+            }
+
             let opRes: t_inlineOperateResult | false = this.operate();
 
             if (opRes) {

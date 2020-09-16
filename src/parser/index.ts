@@ -16,6 +16,7 @@ import Utils from './Utils'
 import Table from './components/Table'
 import AltHeading from './components/AltHeading'
 import List from './components/List'
+import Blockquote from './components/Blockquote'
 
 export default class Parser {
     private input: string;
@@ -42,6 +43,7 @@ export default class Parser {
         this.curLineIdx = 0;
         this.lineStartIdxs = Utils.getLineStartIdxs(this.input);
         this.baseindent = baseindent;
+        console.log(this.baseindent);
 
         this.refMap = new Map();
         this.reflinks = [];
@@ -91,6 +93,34 @@ export default class Parser {
                     type: 'inlinecontainer',
                     el: h1,
                     nextStartingIdx: nextStart.idx
+                }
+            }
+
+            case '>': {
+                let matchRes: t_spottedSeq[] = Blockquote.match(this.idx, this.input);
+                let extractRes: t_inlineParseResult = Blockquote.extract(matchRes, this.input);
+
+                extractRes.refs.forEach((ref: t_ref) => {
+                    if (!this.refMap.get(ref.key)) this.refMap.set(ref.key, { url: ref.url, title: ref.title });
+                });
+
+                this.reflinks.push(...extractRes.reflinks);
+
+                let start: number = matchRes[0].idx;
+                let end: number = matchRes[1].idx;
+
+                let wholeListStr: string = this.input.substring(start, end);
+
+                let newLineCount: number = wholeListStr
+                .split('')
+                .filter((char: string) => char == '\n').length;
+
+                this.curLineIdx += newLineCount;
+
+                return {
+                    type: 'element',
+                    el: extractRes.el,
+                    nextStartingIdx: end
                 }
             }
 
@@ -238,7 +268,7 @@ export default class Parser {
 
     private pushTextBuffer(containerTag: string = ''): void {
         if (this.textBuffer != '') {
-            let InlineParser: Inline = new Inline(this.textBuffer, containerTag, this.baseindent);
+            let InlineParser: Inline = new Inline(this.textBuffer, containerTag);
             this.textBuffer = '';
 
             let inlineParseRes: t_inlineParseResult = InlineParser.parse();
@@ -260,6 +290,13 @@ export default class Parser {
 
     public parse(resolveReflinks: boolean = true, containerTag: boolean = true): Element {
         while (this.idx < this.input.length) {
+            if (this.input[this.idx] == '\\') {
+                this.textBuffer += this.input[this.idx];
+                this.idx++;
+                this.textBuffer += this.input[this.idx];
+                this.idx++;
+            }
+
             let opRes: t_operateResult | false = this.operate();
 
             if (opRes) {
