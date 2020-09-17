@@ -17,6 +17,7 @@ import Table from './components/Table'
 import AltHeading from './components/AltHeading'
 import List from './components/List'
 import Blockquote from './components/Blockquote'
+import CodeBlock from './components/CodeBlock'
 
 export default class Parser {
     private input: string;
@@ -120,6 +121,32 @@ export default class Parser {
                 return {
                     type: 'element',
                     el: extractRes.el,
+                    nextStartingIdx: end
+                }
+            }
+
+            case ' ': {
+                if (this.idx > 0 && this.input[this.idx - 1] != '\n') return false;
+
+                let matchRes: t_spottedSeq[] | false = CodeBlock.indentMatch(this.input, this.curLineIdx, this.lineStartIdxs, this.baseindent);
+                if (!matchRes) return false;
+
+                let extractRes: Element = CodeBlock.indentExtract(matchRes, this.input, this.baseindent);
+
+                let start: number = matchRes[0].idx;
+                let end: number = matchRes[matchRes.length - 1].idx;
+
+                let wholeListStr: string = this.input.substring(start, end);
+
+                let newLineCount: number = wholeListStr
+                .split('')
+                .filter((char: string) => char == '\n').length;
+
+                this.curLineIdx += newLineCount;
+
+                return {
+                    type: 'element',
+                    el: extractRes,
                     nextStartingIdx: end
                 }
             }

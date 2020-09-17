@@ -201,7 +201,9 @@ export default class List {
             }
         }
 
-        return { head, context: checked ? listItemContext.substring(checkEnding) : listItemContext, checked }
+        let ctx: string = checked ? listItemContext.substring(checkEnding) : listItemContext;
+
+        return { head, context: `${' '.repeat(seq.fullindent)}${ctx}`, checked }
     }
 
     public static extract(seqs: t_listMatch[], context: string): t_listExtractRes {

@@ -35,14 +35,13 @@ export default class Element {
             return ctx;
         }
 
-        let tab: string = '  '.repeat(level);
         let attributes: string = this.attributes.reduce((prev: string, current: t_attribute) => {
             return `${prev} ${current.key}='${current.value}'`;
         }, '');
 
-        let html: string = `\n${tab}<${this.tag}${attributes}>\n${tab}${this.context}`;
+        let html: string = `<${this.tag}${attributes}>${this.context}`;
         this.childs.forEach((el: Element) => html += el.emitHtml(level + 1));
-        html += `\n${tab}</${this.tag}>`;
+        html += `</${this.tag}>`;
 
         return html;
     }
