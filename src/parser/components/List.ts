@@ -10,7 +10,7 @@ import {
 
 type t_listHeadRes = { type: 'ordered' | 'unordered', outerindent: number, fullindent: number };
 type t_lookRes = { type: 'li' | 'par', idx: number };
-type t_extractListItemRes = { head: string, context: string };
+type t_extractListItemRes = { head: string, context: string, checked: 'checked' | 'unchecked' | false };
 
 export default class List {
     private static isListHead(start: number, str: string): t_listHeadRes | false {
@@ -176,7 +176,32 @@ export default class List {
             }
         }
 
-        return { head, context: str.substring(headEnding) }
+        let listItemContext: string = str.substring(headEnding);
+        let checked: 'checked' | 'unchecked' | false = false;
+        let checkEnding: number = headEnding;
+
+        for (let i: number = 0; i < listItemContext.length; i++) {
+            if (listItemContext[i] != ' ' && listItemContext[i] != '\n') {
+                if ((listItemContext[i - 1] && listItemContext[i - 1] != ' ') || 
+                    (listItemContext[i + 3] && listItemContext[i + 3] != ' ')) {
+                    break;
+                }
+
+                if (listItemContext[i] == '[' && listItemContext[i + 1] == ' ' && listItemContext[i + 2] == ']') {
+                    checked = 'unchecked';
+                    checkEnding = i + 3;
+                }
+
+                if (listItemContext[i] == '[' && listItemContext[i + 1] == 'x' && listItemContext[i + 2] == ']') {
+                    checked = 'checked';
+                    checkEnding = i + 3;
+                }
+
+                break;
+            }
+        }
+
+        return { head, context: checked ? listItemContext.substring(checkEnding) : listItemContext, checked }
     }
 
     public static extract(seqs: t_listMatch[], context: string): t_listExtractRes {
@@ -190,6 +215,7 @@ export default class List {
 
         for (let i: number = 0; i < seqs.length; i++) {
             let listPieces: t_extractListItemRes = this.extractListItem(seqs[i], context);
+
             if (type == 'ol' && !start) {
                 start = listPieces.head;
                 list.attributes = [ { key: 'start', value: start } ];
@@ -206,6 +232,13 @@ export default class List {
             reflinks.push(...listContextParser.getReflinks());
 
             let li: Element = new Element('li');
+
+            if (listPieces.checked) {
+                let checked: string = listPieces.checked == 'checked' ? `checked='true'` : '';
+                let checkbox: Element = new Element('', [], `<input disabled type='checkbox' ${checked}>`);
+                li.appendChild(checkbox);
+            }
+
             li.appendChild(listContext);
 
             list.appendChild(li);

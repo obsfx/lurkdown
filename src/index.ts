@@ -44,16 +44,16 @@ Or leave it empty and use the __[link text itself]__.
 1. First ordered list item
 2. Another item
    * Unorderedk
-4. And another item.
+4. [x] And another item.
    1. test
    1. test 2
       1. Ordered sub-list
       1. First ordered list item
       2. Another item
-         * Unorderedk
+         * [ ] Unorderedk
       4. And another item.
-         1. test
-         1. test 2
+         1. [ ] test
+         1. [x] test 2
 
 Alt-H1
 ======
