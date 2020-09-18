@@ -34,7 +34,7 @@ export default abstract class Emphasis {
 
         let inlineText: string = Utils.getBetween(spottedSeqs[0], spottedSeqs[1], str);
 
-        if (inlineText[0] == ' ' || inlineText[1] == ' ') return false;
+        if (inlineText[0] == ' ' || inlineText[inlineText.length - 1] == ' ') return false;
 
         return spottedSeqs;
     }

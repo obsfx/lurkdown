@@ -57,16 +57,14 @@ export default abstract class Utils {
         return context.substring(opening.idx + opening.len, closing.idx)
     }
 
-    public static checkSeq(seq: string[], start: number, context: string, terminators: string[] = []): t_spottedSeq[] | false {
+    public static checkSeq(seq: string[], start: number, context: string, nlTerminator: boolean = true): t_spottedSeq[] | false {
         if (seq.length == 0) return false;
 
         let idx: number = start;
         let seqIdx: number = 0;
         let spottedSeqs: t_spottedSeq[] = [];
 
-        while (idx < context.length && !this.isBlankLine(idx, context) && seqIdx < seq.length) {
-            if (terminators.indexOf(seq[seqIdx]) > -1) return false;
-
+        while (idx < context.length && (!nlTerminator || !this.isBlankLine(idx, context)) && seqIdx < seq.length) {
             if (seq[seqIdx] == context.substring(idx, idx + seq[seqIdx].length)) {
                 spottedSeqs.push({ idx: idx, len: seq[seqIdx].length });
                 idx = idx + seq[seqIdx].length;
@@ -99,9 +97,9 @@ export default abstract class Utils {
         return { source, left, right }
     }
 
-    public static resolveSeqs(seqs: string[][], start: number, str: string, terminators: string[] = []): t_spottedSeq[] | false {
+    public static resolveSeqs(seqs: string[][], start: number, str: string, nlTerminator: boolean = true): t_spottedSeq[] | false {
         for (let i: number = 0; i < seqs.length; i++) {
-            let checkSeqRes: t_spottedSeq[] | false = this.checkSeq(seqs[i], start, str, terminators);
+            let checkSeqRes: t_spottedSeq[] | false = this.checkSeq(seqs[i], start, str, nlTerminator);
 
             if (checkSeqRes) {
                 return checkSeqRes;

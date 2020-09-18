@@ -6,7 +6,8 @@ import {
     t_operateResult,
     t_spottedSeq,
     t_listMatch,
-    t_listExtractRes
+    t_listExtractRes,
+    t_inlineHTMLMatchRes
 } from './types'
 
 import Inline from './Inline'
@@ -18,6 +19,7 @@ import AltHeading from './components/AltHeading'
 import List from './components/List'
 import Blockquote from './components/Blockquote'
 import CodeBlock from './components/CodeBlock'
+import InlineHTML from './components/InlineHTML'
 
 export default class Parser {
     private input: string;
@@ -44,7 +46,6 @@ export default class Parser {
         this.curLineIdx = 0;
         this.lineStartIdxs = Utils.getLineStartIdxs(this.input);
         this.baseindent = baseindent;
-        console.log(this.baseindent);
 
         this.refMap = new Map();
         this.reflinks = [];
@@ -97,7 +98,30 @@ export default class Parser {
                 }
             }
 
+            case '<': {
+                let matchRes: t_inlineHTMLMatchRes | false = InlineHTML.match(this.idx, this.input);
+                if (!matchRes) return false;
+
+                let extractRes: Element = InlineHTML.extract(matchRes, this.input);
+
+                let wholeListStr: string = Utils.getBetween(matchRes.seqs[1], matchRes.seqs[2], this.input);
+
+                let newLineCount: number = wholeListStr
+                .split('')
+                .filter((char: string) => char == '\n').length;
+
+                this.curLineIdx += newLineCount;
+
+                return {
+                    type: 'element',
+                    el: extractRes,
+                    nextStartingIdx: matchRes.seqs[2].idx + matchRes.seqs[2].len
+                }
+            }
+
             case '>': {
+                if (this.idx > 0 && (this.input[this.idx - 1] != '\n' && this.input[this.idx - 1] != ' ')) return false;
+
                 let matchRes: t_spottedSeq[] = Blockquote.match(this.idx, this.input);
                 let extractRes: t_inlineParseResult = Blockquote.extract(matchRes, this.input);
 
