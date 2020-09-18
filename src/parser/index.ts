@@ -20,6 +20,7 @@ import List from './components/List'
 import Blockquote from './components/Blockquote'
 import CodeBlock from './components/CodeBlock'
 import InlineHTML from './components/InlineHTML'
+import HorizontalRule from './components/HorizontalRule'
 
 export default class Parser {
     private input: string;
@@ -218,38 +219,86 @@ export default class Parser {
                     }
                 }
 
+                let hrule: t_spottedSeq[] | false = HorizontalRule.match('-', this.curLineIdx, this.lineStartIdxs, this.input);
+
+                if (hrule) {
+                    let [ nextStart ] = hrule;
+                    let hr: Element = new Element('', [], '<hr>');
+
+                    return {
+                        type: 'element',
+                        el: hr,
+                        nextStartingIdx: nextStart.idx
+                    }
+                }
+
                 return false;
             }
 
             case '*':
             case '+': {
                 let listMatchRes: t_listMatch[] | false = List.match(this.idx, this.input);
-                if (!listMatchRes) return false;
 
-                let listExtractRes: t_listExtractRes = List.extract(listMatchRes, this.input);
+                if (listMatchRes) {
+                    let listExtractRes: t_listExtractRes = List.extract(listMatchRes, this.input);
 
-                listExtractRes.refMap.forEach((value: t_refUrlTitlePair, key: string) => {
-                    if (!this.refMap.get(key)) this.refMap.set(key, value);
-                });
+                    listExtractRes.refMap.forEach((value: t_refUrlTitlePair, key: string) => {
+                        if (!this.refMap.get(key)) this.refMap.set(key, value);
+                    });
 
-                this.reflinks.push(...listExtractRes.reflinks);
+                    this.reflinks.push(...listExtractRes.reflinks);
 
-                let start: number = listMatchRes[0].start;
-                let end: number = listMatchRes[listMatchRes.length - 1].end;
+                    let start: number = listMatchRes[0].start;
+                    let end: number = listMatchRes[listMatchRes.length - 1].end;
 
-                let wholeListStr: string = this.input.substring(start, end);
+                    let wholeListStr: string = this.input.substring(start, end);
 
-                let newLineCount: number = wholeListStr
-                .split('')
-                .filter((char: string) => char == '\n').length;
+                    let newLineCount: number = wholeListStr
+                    .split('')
+                    .filter((char: string) => char == '\n').length;
 
-                this.curLineIdx += newLineCount;
+                    this.curLineIdx += newLineCount;
 
-                return {
-                    type: 'element',
-                    el: listExtractRes.el,
-                    nextStartingIdx: end
+                    return {
+                        type: 'element',
+                        el: listExtractRes.el,
+                        nextStartingIdx: end
+                    }
                 }
+
+                if (this.input[this.idx] == '*') {
+                    let hrule: t_spottedSeq[] | false = HorizontalRule.match('*', this.curLineIdx, this.lineStartIdxs, this.input);
+
+                    if (hrule) {
+                        let [ nextStart ] = hrule;
+                        let hr: Element = new Element('', [], '<hr>');
+
+                        return {
+                            type: 'element',
+                            el: hr,
+                            nextStartingIdx: nextStart.idx
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            case '_': {
+                let hrule: t_spottedSeq[] | false = HorizontalRule.match('_', this.curLineIdx, this.lineStartIdxs, this.input);
+
+                if (hrule) {
+                    let [ nextStart ] = hrule;
+                    let hr: Element = new Element('', [], '<hr>');
+
+                    return {
+                        type: 'element',
+                        el: hr,
+                        nextStartingIdx: nextStart.idx
+                    }
+                }
+
+                return false;
             }
 
             default: {

@@ -83,6 +83,18 @@ test
   <dd>Does *not* work **very** well. Use HTML <em>tags</em>.</dd>
 </dl>
 
+asfasfsaf
+
+***
+
+asfasfasfsafsaf
+
+---
+
+asfsafsafsaff
+
+___
+
 <div style='color: red'>test</div>
 `;
 
