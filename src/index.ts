@@ -6,7 +6,7 @@ import fs from 'fs'
 let data = fs.readFileSync(`${__dirname}/../test.md`, 'utf8');
 
 console.log('*********************************')
-console.log(JSON.stringify(data));
+console.log(JSON.stringify(data.split('\r\n').join('\n')));
 console.log('*********************************')
 
 setTimeout(() => {

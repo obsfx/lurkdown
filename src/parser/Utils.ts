@@ -27,7 +27,11 @@ export default abstract class Utils {
     }
 
     public static isBlankLine(start: number, str: string): boolean {
-        if (str.substring(start, start + 2) == '\n\n' || str.substring(start, start + 4) == '\r\n\r\n') {
+        //console.log('---->', JSON.stringify(str.substring(start, start + 2)));
+
+        //debugger;
+
+        if (str.substring(start, start + 2) == '\n\n') {
             return true;
         }
 

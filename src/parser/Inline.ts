@@ -116,13 +116,6 @@ export default class Inline {
 
                 let code: string = Utils.getBetween(matchRes[0], matchRes[1], this.input);
 
-                /*
-                console.log('-----------------')
-                console.log('TAK')
-                console.log(code)
-                console.log('-----------------')
-                */
-
                 let el: Element = new Element('code', [], code);
                 let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
@@ -133,7 +126,6 @@ export default class Inline {
             }
 
             case '[': {
-                debugger;
                 let matchRes: t_spottedSeq[] | false;
 
                 matchRes = Link.match(this.idx, this.input);
@@ -153,14 +145,6 @@ export default class Inline {
                 if (matchRes) {
                     let refs: t_ref[] = Ref.extract(matchRes, this.input);
                     this.refs.push(...refs);
-
-                    //for (let i: number = 0; i < refs.length; i++) {
-                    //    let { key, url, title } = refs[i];
-
-                    //    if (!refMap.get(key)) {
-                    //        refMap.set(key, { url, title });
-                    //    }
-                    //}
 
                     let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
                     return {
@@ -186,6 +170,36 @@ export default class Inline {
 
                 return false;
             }
+
+            case '<': {
+                let matchRes: t_spottedSeq[] | false = Link.angleMatch(this.idx, this.input);
+                if (!matchRes) return false;
+
+                let extractRes: Element = Link.URLExtract(matchRes, this.input);
+
+                let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                return {
+                    el: extractRes,
+                    nextStartingIdx: patternEnding.idx + patternEnding.len
+                }
+            }
+
+            default: {
+                if (this.input[this.idx] == 'h') {
+                    let matchRes: t_spottedSeq[] | false = Link.URLMatch(this.idx, this.input);
+                    if (matchRes) {
+                        let extractRes: Element = Link.URLExtract(matchRes, this.input);
+
+                        let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                        return {
+                            el: extractRes,
+                            nextStartingIdx: patternEnding.idx + patternEnding.len
+                        }
+                    }
+                }
+            } break;
         }
 
         return false;

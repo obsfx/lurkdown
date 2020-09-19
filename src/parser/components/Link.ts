@@ -51,4 +51,36 @@ export default abstract class Link {
 
         return a;
     }
+
+    public static URLMatch(start: number, str: string): t_spottedSeq[] | false {
+        if (str.substring(start, start + 7) != 'http://' &&
+            str.substring(start, start + 8) != 'https://') return false;
+
+        let idx: number = start;
+
+        while (str[idx] && str[idx] != ' ' && str[idx] != '\n') {
+            idx++;
+        }
+
+        return [ { idx: start, len: 0 }, { idx, len: 0 } ];
+    }
+
+    public static URLExtract(seqs: t_spottedSeq[], context: string): Element {
+        let url: string = Utils.getBetween(seqs[0], seqs[1], context);
+        let a: Element = new Element('a', [ { key: 'href', value: url } ], url);
+        return a;
+    }
+
+    public static angleMatch(start: number, str: string): t_spottedSeq[] | false {
+        let sequence: string[][] = [ ['<', '>'] ];
+        let spottedSeqs: t_spottedSeq[] | false = Utils.resolveSeqs(sequence, start, str);
+        if (!spottedSeqs) return false;
+        let inside: string = Utils.getBetween(spottedSeqs[0], spottedSeqs[1], str);
+        console.log(inside, inside.substring(0, 7) != 'http://', inside.substring(0, 7))
+
+        if (inside.substring(0, 7) != 'http://' &&
+            inside.substring(0, 8) != 'https://') return false;
+
+        return spottedSeqs;
+    }
 }

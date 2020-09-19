@@ -32,13 +32,14 @@ export default class Parser {
     public curLineIdx: number;
     public lineStartIdxs: number[];
     private baseindent: number;
+    private containerTag: boolean;
 
     // donethings inside of inline
     public refMap: Map<string, t_refUrlTitlePair>;
     public reflinks: t_reflink[];
 
-    constructor(input: string, baseindent: number = 0) {
-        this.input = input;
+    constructor(input: string, baseindent: number = 0, containerTag: boolean = true) {
+        this.input = input.split('\r\n').join('\n');
         this.textBuffer = '';
         this.body = new Element('');
         this.conBuffer = Utils.getSection();
@@ -47,6 +48,7 @@ export default class Parser {
         this.curLineIdx = 0;
         this.lineStartIdxs = Utils.getLineStartIdxs(this.input);
         this.baseindent = baseindent;
+        this.containerTag = containerTag;
 
         this.refMap = new Map();
         this.reflinks = [];
@@ -55,11 +57,33 @@ export default class Parser {
     private operate(): t_operateResult | false {
         switch (this.input[this.idx]) {
             case '\n': {
-                this.curLineIdx++;
-                return false;
+                if (Utils.isBlankLine(this.idx, this.input)) {
+                    this.pushTextBuffer();
+                    this.curLineIdx += 2;
+
+                    if (!this.containerTag) this.conBuffer.tag = '';
+
+                    if (this.conBuffer.childs.length == 0) {
+                        this.body.appendChild(new Element('', [], '<br>'));
+                    } else {
+                        this.body.appendChild(this.conBuffer);
+                    }
+
+                    this.conBuffer = Utils.getSection();
+                } else {
+                    this.textBuffer += this.input[this.idx];
+                    this.curLineIdx++;
+                }
+
+                return {
+                    type: 'element',
+                    el: null,
+                    nextStartingIdx: this.lineStartIdxs[this.curLineIdx]
+                }
             }
 
             case '|': {
+                debugger;
                 let [ 
                     matchRes, 
                     rowRange, 
@@ -67,6 +91,7 @@ export default class Parser {
                     textAligns 
                 ] = Table.match(this.curLineIdx, this.lineStartIdxs, this.input);
                 if (!matchRes) return false;
+                console.log('TEST');
 
                 let table: Element = Table.extract(this.curLineIdx, 
                 this.lineStartIdxs, this.input, rowRange, columnCount, textAligns || []);
@@ -76,7 +101,12 @@ export default class Parser {
                     this.lineStartIdxs[this.curLineIdx] :
                     this.input.length;
 
-                this.conBuffer.childs.pop();
+                for (let i: number = this.textBuffer.length - 1; i > -1; i--) {
+                    if (this.textBuffer[i] == '\n' || i == 0) {
+                        this.textBuffer = this.textBuffer.substring(0, i);
+                        break;
+                    }
+                }
 
                 return {
                     type: 'element',
@@ -105,9 +135,9 @@ export default class Parser {
 
                 let extractRes: Element = InlineHTML.extract(matchRes, this.input);
 
-                let wholeListStr: string = Utils.getBetween(matchRes.seqs[1], matchRes.seqs[2], this.input);
+                let sectionStr: string = Utils.getBetween(matchRes.seqs[1], matchRes.seqs[2], this.input);
 
-                let newLineCount: number = wholeListStr
+                let newLineCount: number = sectionStr
                 .split('')
                 .filter((char: string) => char == '\n').length;
 
@@ -135,9 +165,9 @@ export default class Parser {
                 let start: number = matchRes[0].idx;
                 let end: number = matchRes[1].idx;
 
-                let wholeListStr: string = this.input.substring(start, end);
+                let sectionStr: string = this.input.substring(start, end);
 
-                let newLineCount: number = wholeListStr
+                let newLineCount: number = sectionStr
                 .split('')
                 .filter((char: string) => char == '\n').length;
 
@@ -161,9 +191,9 @@ export default class Parser {
                 let start: number = matchRes[0].idx;
                 let end: number = matchRes[matchRes.length - 1].idx;
 
-                let wholeListStr: string = this.input.substring(start, end);
+                let sectionStr: string = this.input.substring(start, end);
 
-                let newLineCount: number = wholeListStr
+                let newLineCount: number = sectionStr
                 .split('')
                 .filter((char: string) => char == '\n').length;
 
@@ -191,9 +221,9 @@ export default class Parser {
                     let start: number = listMatchRes[0].start;
                     let end: number = listMatchRes[listMatchRes.length - 1].end;
 
-                    let wholeListStr: string = this.input.substring(start, end);
+                    let sectionStr: string = this.input.substring(start, end);
 
-                    let newLineCount: number = wholeListStr
+                    let newLineCount: number = sectionStr
                     .split('')
                     .filter((char: string) => char == '\n').length;
 
@@ -251,9 +281,9 @@ export default class Parser {
                     let start: number = listMatchRes[0].start;
                     let end: number = listMatchRes[listMatchRes.length - 1].end;
 
-                    let wholeListStr: string = this.input.substring(start, end);
+                    let sectionStr: string = this.input.substring(start, end);
 
-                    let newLineCount: number = wholeListStr
+                    let newLineCount: number = sectionStr
                     .split('')
                     .filter((char: string) => char == '\n').length;
 
@@ -308,9 +338,9 @@ export default class Parser {
 
                     let extractRes: Element = CodeBlock.extract(matchRes[0], matchRes[1], this.input);
 
-                    let wholeListStr: string = Utils.getBetween(matchRes[0], matchRes[1], this.input);
+                    let sectionStr: string = Utils.getBetween(matchRes[0], matchRes[1], this.input);
 
-                    let newLineCount: number = wholeListStr
+                    let newLineCount: number = sectionStr
                     .split('')
                     .filter((char: string) => char == '\n').length;
 
@@ -342,9 +372,9 @@ export default class Parser {
                         let start: number = listMatchRes[0].start;
                         let end: number = listMatchRes[listMatchRes.length - 1].end;
 
-                        let wholeListStr: string = this.input.substring(start, end);
+                        let sectionStr: string = this.input.substring(start, end);
 
-                        let newLineCount: number = wholeListStr
+                        let newLineCount: number = sectionStr
                         .split('')
                         .filter((char: string) => char == '\n').length;
 
@@ -407,13 +437,13 @@ export default class Parser {
 
             this.reflinks.push(...reflinks);
 
-            if (el.tag != '' || el.context != '' || el.childs.length != 0) {
-                this.conBuffer.appendChild(el);
-            }
+            this.conBuffer.appendChild(el);
+            //if (el.tag != '' || el.context != '' || el.childs.length != 0) {
+            //}
         }
     }
 
-    public parse(resolveReflinks: boolean = true, containerTag: boolean = true): Element {
+    public parse(resolveReflinks: boolean = true): Element {
         while (this.idx < this.input.length) {
             if (this.input[this.idx] == '\\') {
                 this.textBuffer += this.input[this.idx];
@@ -442,21 +472,25 @@ export default class Parser {
                 this.idx++;
             }
 
-            if (Utils.isBlankLine(this.idx, this.input)) {
-                console.log(JSON.stringify(this.textBuffer))
-                this.pushTextBuffer();
-                this.curLineIdx += this.input[this.idx] == '\r' ? 2 : 1;
-                this.idx = this.lineStartIdxs[this.curLineIdx];
-                if (!containerTag) this.conBuffer.tag = '';
-                this.body.appendChild(this.conBuffer);
-                this.conBuffer = Utils.getSection();
-            }
+            //debugger;
+            //let lineCheckIdx: number = opRes ? this.idx : this.idx - 1;
+            //console.log(JSON.stringify(this.textBuffer), JSON.stringify(this.input[lineCheckIdx]))
+
+            //if (Utils.isBlankLine(lineCheckIdx, this.input)) {
+            //    this.pushTextBuffer();
+            //    this.curLineIdx += 1;
+            //    this.idx = this.lineStartIdxs[this.curLineIdx];
+
+            //    if (!containerTag) this.conBuffer.tag = '';
+            //    this.body.appendChild(this.conBuffer);
+            //    this.conBuffer = Utils.getSection();
+            //}
         }
 
         this.pushTextBuffer();
 
         if (this.conBuffer.childs.length != 0) {
-            if (!containerTag) this.conBuffer.tag = '';
+            if (!this.containerTag) this.conBuffer.tag = '';
             this.body.appendChild(this.conBuffer);
         }
 

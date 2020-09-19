@@ -5,7 +5,7 @@ import {
 
 export default abstract class AltHeading {
     public static match(type: '=' | '-', curLineIdx: number, lineStartIdxs: number[], str: string): t_spottedSeq[] | false {
-        let prevLine: string = lineStartIdxs[curLineIdx - 1] ? 
+        let prevLine: string = lineStartIdxs[curLineIdx - 1] != undefined ? 
             Utils.getLine(lineStartIdxs[curLineIdx - 1], str) :
             '';
 

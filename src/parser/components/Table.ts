@@ -1,8 +1,10 @@
 import Element, { t_attribute } from '../Element'
 import Utils from '../Utils'
+import Inline from '../Inline'
 import {
     t_tableMatchResult,
-    t_textAlign
+    t_textAlign,
+    t_inlineParseResult
 } from '../types'
 
 export default abstract class Table {
@@ -18,7 +20,7 @@ export default abstract class Table {
         /**
          * get the current line string and remove unneccassary outer pipes
          */
-        let line: string = Utils.getLine(lineStartIdxs[curLineIdx], context);
+        let line: string = Utils.getLine(lineStartIdxs[curLineIdx], context).trim();
         line = Utils.extractFixes(line, '|').source;
 
         /**
@@ -31,7 +33,7 @@ export default abstract class Table {
         /**
          * get the next line string and remove unneccassary outer pipes
          */
-        let nextLine: string = Utils.getLine(lineStartIdxs[curLineIdx + 1], context);
+        let nextLine: string = Utils.getLine(lineStartIdxs[curLineIdx + 1], context).trim();
         nextLine = Utils.extractFixes(nextLine, '|').source;
 
         /**
@@ -111,7 +113,7 @@ export default abstract class Table {
         /**
          * get the table headers
          */
-        let headstr: string = Utils.getLine(lineStartIdxs[curLineIdx], context);
+        let headstr: string = Utils.getLine(lineStartIdxs[curLineIdx], context).trim();
         headstr = Utils.extractFixes(headstr, '|').source;
 
         let headFields: string[] = headstr.split('|');
@@ -125,7 +127,11 @@ export default abstract class Table {
                 attributes.push({ key: 'align', value: textAlign.align });
             }
 
-            let th: Element = new Element('th', attributes, context);
+            let contextParser: Inline = new Inline(context, '');
+            let parsedContext: t_inlineParseResult = contextParser.parse();
+
+            let th: Element = new Element('th', attributes);
+            th.appendChild(parsedContext.el);
 
             headtr.appendChild(th);
         }
@@ -141,7 +147,7 @@ export default abstract class Table {
         let rowIdx: number = curLineIdx + 2;
 
         for (let i: number = 0; i < rowRange; i++) {
-            let rowstr: string = Utils.getLine(lineStartIdxs[rowIdx + i], context);
+            let rowstr: string = Utils.getLine(lineStartIdxs[rowIdx + i], context).trim();
             rowstr = Utils.extractFixes(rowstr, '|').source;
 
             let rowFields: string[] = rowstr.split('|');
@@ -157,7 +163,12 @@ export default abstract class Table {
                     attributes.push({ key: 'align', value: textAlign.align });
                 }
 
-                let td: Element = new Element('td', attributes, context);
+                let contextParser: Inline = new Inline(context, '');
+                let parsedContext: t_inlineParseResult = contextParser.parse();
+
+                let td: Element = new Element('td', attributes);
+                td.appendChild(parsedContext.el);
+
                 tr.appendChild(td);
             }
 

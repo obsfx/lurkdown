@@ -21,7 +21,7 @@ export default class List {
             let oidx: number = start - 1;
             let outerindent: number = 0;
 
-            while (str[oidx] != '\n') {
+            while (oidx > 0 && str[oidx] != '\n') {
                 if (str[oidx] != ' ') return false;
                 outerindent++;
                 oidx--;
@@ -43,7 +43,7 @@ export default class List {
             let oidx: number = start - 1;
             let outerindent: number = 0;
 
-            while (str[oidx] != '\n') {
+            while (oidx > 0 && str[oidx] != '\n') {
                 if (str[oidx] != ' ') return false;
                 outerindent++;
                 oidx--;
@@ -94,8 +94,6 @@ export default class List {
         let indent: number = 0;
 
         while (idx < str.length) {
-            if (str[idx] == '\n') indent = 0;
-
             if (str[idx] != '\n' && str[idx] != ' ') {
                 let anotherhead: t_listHeadRes | false = this.isListHead(idx, str);
 
@@ -113,7 +111,9 @@ export default class List {
                 }
             }
 
-            indent++;
+            if (str[idx] == '\n') indent = 0;
+            else indent++;
+
             idx++;
         }
 
@@ -223,8 +223,8 @@ export default class List {
                 list.attributes = [ { key: 'start', value: start } ];
             }
 
-            let listContextParser: Parser = new Parser(listPieces.context, seqs[i].fullindent);
-            let listContext: Element = listContextParser.parse(false, false);
+            let listContextParser: Parser = new Parser(listPieces.context, seqs[i].fullindent, false);
+            let listContext: Element = listContextParser.parse(false);
 
             let listRefMap: Map<string, t_refUrlTitlePair> = listContextParser.getRefMap();
             listRefMap.forEach((value: t_refUrlTitlePair, key: string ) => {
