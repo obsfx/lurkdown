@@ -301,6 +301,31 @@ export default class Parser {
                 return false;
             }
 
+            case '`': {
+                if (this.input.substring(this.idx, this.idx + 3) == '```') {
+                    let matchRes: t_spottedSeq[] | false = CodeBlock.match(this.idx, this.input);
+                    if (!matchRes) return false;
+
+                    let extractRes: Element = CodeBlock.extract(matchRes[0], matchRes[1], this.input);
+
+                    let wholeListStr: string = Utils.getBetween(matchRes[0], matchRes[1], this.input);
+
+                    let newLineCount: number = wholeListStr
+                    .split('')
+                    .filter((char: string) => char == '\n').length;
+
+                    this.curLineIdx += newLineCount;
+
+                    return {
+                        type: 'element',
+                        el: extractRes,
+                        nextStartingIdx: matchRes[1].idx + matchRes[1].len
+                    }
+                }
+
+                return false;
+            }
+
             default: {
                 if (Number.isInteger(parseInt(this.input[this.idx]))) {
                     let listMatchRes: t_listMatch[] | false = List.match(this.idx, this.input);
@@ -418,8 +443,9 @@ export default class Parser {
             }
 
             if (Utils.isBlankLine(this.idx, this.input)) {
+                console.log(JSON.stringify(this.textBuffer))
                 this.pushTextBuffer();
-                this.curLineIdx += 1;
+                this.curLineIdx += this.input[this.idx] == '\r' ? 2 : 1;
                 this.idx = this.lineStartIdxs[this.curLineIdx];
                 if (!containerTag) this.conBuffer.tag = '';
                 this.body.appendChild(this.conBuffer);

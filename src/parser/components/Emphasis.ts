@@ -22,6 +22,10 @@ export default abstract class Emphasis {
 
             'scratch': {
                 '~': [ ['~~', '~~'] ]
+            },
+
+            'code': {
+                '`': [ [ '`', '`' ] ]
             }
         }
 

@@ -11,6 +11,7 @@ export default abstract class Utils {
         for (let i: number = 0; i < buffer.length; i++) {
             if (buffer[i] == '\n') {
                 arr.push(i + 1);
+                continue;
             }
         }
 
@@ -26,7 +27,11 @@ export default abstract class Utils {
     }
 
     public static isBlankLine(start: number, str: string): boolean {
-        return start < str.length - 1 && str[start] == '\n' && str[start + 1] == '\n';
+        if (str.substring(start, start + 2) == '\n\n' || str.substring(start, start + 4) == '\r\n\r\n') {
+            return true;
+        }
+
+        return false;
     }
 
     public static getLine(start: number, str: string): string {

@@ -5,6 +5,7 @@
  * pattern. If opRes returned false we just store the char at inlineTextBuffer and increate the idx.
  */
 
+import Utils from './Utils'
 import Element from './Element'
 import {
     t_inlineOperateResult,
@@ -109,7 +110,30 @@ export default class Inline {
                 }
             } break;
 
+            case '`': {
+                let matchRes: t_spottedSeq[] | false = Emphasis.match('code', this.idx, this.input);
+                if (!matchRes) return false;
+
+                let code: string = Utils.getBetween(matchRes[0], matchRes[1], this.input);
+
+                /*
+                console.log('-----------------')
+                console.log('TAK')
+                console.log(code)
+                console.log('-----------------')
+                */
+
+                let el: Element = new Element('code', [], code);
+                let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                return {
+                    el,
+                    nextStartingIdx: patternEnding.idx + patternEnding.len
+                }
+            }
+
             case '[': {
+                debugger;
                 let matchRes: t_spottedSeq[] | false;
 
                 matchRes = Link.match(this.idx, this.input);

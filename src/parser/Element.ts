@@ -28,7 +28,7 @@ export default class Element {
         this.childs.push(child);
     }
 
-    emitHtml(level: number = 0): string {
+    emitHtml(): string {
         if (this.tag.trim() == '') {
             let ctx: string = this.context;
             this.childs.forEach((el: Element) => ctx += el.emitHtml());
@@ -40,7 +40,7 @@ export default class Element {
         }, '');
 
         let html: string = `<${this.tag}${attributes}>${this.context}`;
-        this.childs.forEach((el: Element) => html += el.emitHtml(level + 1));
+        this.childs.forEach((el: Element) => html += el.emitHtml());
         html += `</${this.tag}>`;
 
         return html;

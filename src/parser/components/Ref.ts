@@ -13,7 +13,7 @@ export default abstract class Ref {
         let backwardScanIdx: number = start - 1;
 
         while (backwardScanIdx > 0) {
-            if (str[backwardScanIdx] != ' ' && str[backwardScanIdx] != '\n' ) {
+            if (str[backwardScanIdx] != ' ' && str[backwardScanIdx] != '\n' && str[backwardScanIdx] == '\r') {
                 return false;
             } 
 
@@ -30,7 +30,7 @@ export default abstract class Ref {
             while (scanIdx < str.length) {
                 let char: string = str[scanIdx];
 
-                if (char != ' ' && char != '\n') {
+                if (char != ' ' && char != '\n' && char != '\r') {
                     if (char == '[') break;
                     else return false;
                 }

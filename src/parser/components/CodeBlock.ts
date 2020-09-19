@@ -4,8 +4,35 @@ import {
     t_spottedSeq
 } from '../types'
 
+import hljs from 'highlight.js'
+
 export default abstract class CodeBlock {
     private static indenthresold: number = 4;
+
+    public static match(start: number, str: string): t_spottedSeq[] | false {
+        let sequence: string[][] = [ ['```', '```'] ];
+
+        let spottedSeqs: t_spottedSeq[] | false = Utils.resolveSeqs(sequence, start, str, false);
+        if (!spottedSeqs) return false;
+
+        return spottedSeqs;
+    }
+
+    public static extract(opening: t_spottedSeq, closing: t_spottedSeq, context: string): Element {
+        let str: string = Utils.getBetween(opening, closing, context);
+        let strArr: string[] = str.split('\n');
+        let lang: Language | undefined = hljs.getLanguage(strArr[0]);
+        strArr.shift();
+
+        let code: string = strArr.join('\n');
+
+        let hlcode: string = lang ? hljs.highlight(lang.name || '', code).value :
+            hljs.highlightAuto(code).value;
+
+        let div: Element = new Element('div', [], hlcode);
+
+        return div;
+    }
 
     public static indentMatch(str: string, curLineIdx: number, lineStartIdxs: number[], baseindent: number): t_spottedSeq[] | false {
         let seqs: t_spottedSeq[] = [];
