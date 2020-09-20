@@ -42,7 +42,7 @@ export default abstract class Link {
         let attributes: t_attribute[] = [];
 
         attributes.push({ key: 'href', value: url });
-        
+
         if (title.length > 0) {
             attributes.push({ key: 'title', value: title });
         }

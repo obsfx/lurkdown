@@ -7,7 +7,8 @@ import {
     t_spottedSeq,
     t_listMatch,
     t_listExtractRes,
-    t_inlineHTMLMatchRes
+    t_inlineHTMLMatchRes,
+    t_headingMatchRes
 } from './types'
 
 import Inline from './Inline'
@@ -21,6 +22,7 @@ import Blockquote from './components/Blockquote'
 import CodeBlock from './components/CodeBlock'
 import InlineHTML from './components/InlineHTML'
 import HorizontalRule from './components/HorizontalRule'
+import Heading from './components/Heading'
 
 export default class Parser {
     private input: string;
@@ -78,7 +80,24 @@ export default class Parser {
                 return {
                     type: 'element',
                     el: null,
-                    nextStartingIdx: this.lineStartIdxs[this.curLineIdx]
+                    nextStartingIdx: this.lineStartIdxs[this.curLineIdx] != undefined ? 
+                        this.lineStartIdxs[this.curLineIdx] : 
+                        this.input.length
+                }
+            }
+
+            case '#': {
+                let matchRes: t_headingMatchRes | false = Heading.match(this.idx, this.input);
+                if (!matchRes) return false;
+
+                let extractRes: Element = Heading.extract(matchRes, this.input);
+
+                this.curLineIdx++;
+
+                return {
+                    type: 'element',
+                    el: extractRes,
+                    nextStartingIdx: matchRes.seqs[1].idx + matchRes.seqs[1].len
                 }
             }
 

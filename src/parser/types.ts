@@ -21,3 +21,5 @@ export type t_listMatch = { type: 'ordered' | 'unordered', start: number, end: n
 export type t_listExtractRes = { el: Element, refMap: Map<string, t_refUrlTitlePair>, reflinks: t_reflink[] }
 
 export type t_inlineHTMLMatchRes = { seqs: t_spottedSeq[], contanerTag: string };
+
+export type t_headingMatchRes = { seqs: t_spottedSeq[], hx: number };

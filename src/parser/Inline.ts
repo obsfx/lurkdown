@@ -19,6 +19,7 @@ import Emphasis from './components/Emphasis'
 import Link from './components/Link'
 import Ref from './components/Ref'
 import RefLink from './components/RefLink'
+import Image from './components/Image'
 
 export default class Inline {
     private input: string;
@@ -176,6 +177,20 @@ export default class Inline {
                 if (!matchRes) return false;
 
                 let extractRes: Element = Link.URLExtract(matchRes, this.input);
+
+                let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
+
+                return {
+                    el: extractRes,
+                    nextStartingIdx: patternEnding.idx + patternEnding.len
+                }
+            }
+
+            case '!': {
+                let matchRes: t_spottedSeq[] | false = Image.match(this.idx, this.input);
+                if (!matchRes) return false;
+
+                let extractRes: Element = Image.extract(matchRes, this.input);
 
                 let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
