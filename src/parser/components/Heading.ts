@@ -25,7 +25,7 @@ export default abstract class Heading {
 
         let seqs: t_spottedSeq[] = [ { idx, len: 1 } ];
 
-        while (str[idx] != '\n') {
+        while (str[idx] && str[idx] != '\n') {
             idx++;
         }
 
@@ -37,10 +37,10 @@ export default abstract class Heading {
     public static extract(headingMatch: t_headingMatchRes, context: string): Element {
         let str: string = Utils.getBetween(headingMatch.seqs[0], headingMatch.seqs[1], context);
 
-        let InlineParser: Inline = new Inline(str, '');
+        let InlineParser: Inline = new Inline(str, null);
         let parsedContext: t_inlineParseResult = InlineParser.parse();
 
-        let h: Element = new Element(`h${headingMatch.hx}`);
+        let h: Element = new Element(`h${headingMatch.hx}`, [ { key: 'class', value: `ld-h${headingMatch.hx}` } ]);
         h.appendChild(parsedContext.el);
 
         return h;

@@ -31,12 +31,12 @@ export default class Inline {
     private refs: t_ref[];
     private reflinks: t_reflink[];
 
-    constructor(input: string, containerTag: string) {
+    constructor(input: string, container: Element | null) {
         this.input = input;
 
         this.idx = 0;
         this.textBuffer = '';
-        this.conBuffer = new Element(containerTag);
+        this.conBuffer = container || new Element('');
 
         this.refs = [];
         this.reflinks = [];
@@ -117,7 +117,7 @@ export default class Inline {
 
                 let code: string = Utils.getBetween(matchRes[0], matchRes[1], this.input);
 
-                let el: Element = new Element('code', [], code);
+                let el: Element = new Element('code', [ { key: 'class', value: 'ld-code' } ], code);
                 let patternEnding: t_spottedSeq = matchRes[matchRes.length - 1];
 
                 return {
@@ -187,6 +187,8 @@ export default class Inline {
             }
 
             case '!': {
+                console.log('KEK');
+                debugger;
                 let matchRes: t_spottedSeq[] | false = Image.match(this.idx, this.input);
                 if (!matchRes) return false;
 

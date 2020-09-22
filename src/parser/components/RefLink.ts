@@ -17,8 +17,10 @@ export default abstract class RefLink {
             ],
         }
 
+        let passCon: string[] = [ '[' ];
+
         let seqs: string[][] = sequences[str[start]];
-        let spottedSeqs: t_spottedSeq[] | false = Utils.resolveSeqs(seqs, start, str);
+        let spottedSeqs: t_spottedSeq[] | false = Utils.resolveSeqs(seqs, start, str, true, passCon);
 
         return spottedSeqs;
     }
@@ -40,7 +42,7 @@ export default abstract class RefLink {
 
             str = context.substring(seq[0].idx + seq[0].len, seq[1].idx);
 
-            let InlineParser: Inline = new Inline(str, '');
+            let InlineParser: Inline = new Inline(str, null);
             let inlineParseRes: t_inlineParseResult = InlineParser.parse();
 
             strEl = inlineParseRes.el;
@@ -51,7 +53,7 @@ export default abstract class RefLink {
 
         el.appendChild(new Element('', [], '['));
 
-        let InlineParser: Inline = new Inline(key, '');
+        let InlineParser: Inline = new Inline(key, null);
         let inlineParseRes: t_inlineParseResult = InlineParser.parse();
         let keyEl: Element = inlineParseRes.el;
         el.appendChild(keyEl);

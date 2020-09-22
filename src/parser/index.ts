@@ -43,7 +43,7 @@ export default class Parser {
     constructor(input: string, baseindent: number = 0, containerTag: boolean = true) {
         this.input = input.split('\r\n').join('\n');
         this.textBuffer = '';
-        this.body = new Element('');
+        this.body = containerTag ? new Element('div', [ { key: 'class', value: 'ld-wrapper' } ]) : new Element('');
         this.conBuffer = Utils.getSection();
 
         this.idx = 0;
@@ -60,7 +60,7 @@ export default class Parser {
         switch (this.input[this.idx]) {
             case '\n': {
                 if (Utils.isBlankLine(this.idx, this.input)) {
-                    this.pushTextBuffer();
+                    this.pushTextBuffer(null);
                     this.curLineIdx += 2;
 
                     if (!this.containerTag) this.conBuffer.tag = '';
@@ -92,12 +92,18 @@ export default class Parser {
 
                 let extractRes: Element = Heading.extract(matchRes, this.input);
 
-                this.curLineIdx++;
+                let patternEnding: t_spottedSeq = matchRes.seqs[1];
+                let nextStartingIdx: number = patternEnding.idx;
+
+                if (!Utils.isBlankLine(patternEnding.idx, this.input)) {
+                    nextStartingIdx = patternEnding.idx + patternEnding.len;
+                    this.curLineIdx++;
+                }
 
                 return {
                     type: 'element',
                     el: extractRes,
-                    nextStartingIdx: matchRes.seqs[1].idx + matchRes.seqs[1].len
+                    nextStartingIdx
                 }
             }
 
@@ -139,7 +145,7 @@ export default class Parser {
                 if (!matchRes) return false;
 
                 let [ nextStart ] = matchRes;
-                let h1: Element = new Element('h1');
+                let h1: Element = new Element('h1', [ { key: 'class', value: 'ld-h1' } ]);
 
                 return {
                     type: 'inlinecontainer',
@@ -259,7 +265,7 @@ export default class Parser {
 
                 if (altHeadingMathRes) {
                     let [ nextStart ] = altHeadingMathRes;
-                    let h2: Element = new Element('h2');
+                    let h2: Element = new Element('h2', [ { key: 'class', value: 'ld-h2' } ]);
 
                     return {
                         type: 'inlinecontainer',
@@ -425,6 +431,7 @@ export default class Parser {
             el.tag = 'a';
             el.childs = [ reflink.strEl || reflink.keyEl ];
             el.attributes = [
+                { key: 'class', value: 'ld-a' },
                 { key: 'href', value: ref.url }, 
                 { key: 'title', value: ref.title } 
             ];
@@ -440,9 +447,9 @@ export default class Parser {
         return false;
     }
 
-    private pushTextBuffer(containerTag: string = ''): void {
+    private pushTextBuffer(containerEl: Element | null): void {
         if (this.textBuffer != '') {
-            let InlineParser: Inline = new Inline(this.textBuffer, containerTag);
+            let InlineParser: Inline = new Inline(this.textBuffer, containerEl);
             this.textBuffer = '';
 
             let inlineParseRes: t_inlineParseResult = InlineParser.parse();
@@ -478,9 +485,9 @@ export default class Parser {
 
                 if (el) {
                     if (type == 'inlinecontainer') {
-                        this.pushTextBuffer(el.tag);
+                        this.pushTextBuffer(el);
                     } else {
-                        this.pushTextBuffer();
+                        this.pushTextBuffer(null);
                         this.conBuffer.appendChild(el);
                     }
                 }
@@ -506,7 +513,7 @@ export default class Parser {
             //}
         }
 
-        this.pushTextBuffer();
+        this.pushTextBuffer(null);
 
         if (this.conBuffer.childs.length != 0) {
             if (!this.containerTag) this.conBuffer.tag = '';

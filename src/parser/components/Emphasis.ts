@@ -45,13 +45,13 @@ export default abstract class Emphasis {
 
     public static extract(type: string, opening: t_spottedSeq, closing: t_spottedSeq, context: string): t_inlineParseResult {
         let inlineText: string = Utils.getBetween(opening, closing, context);
-        let el: Element = new Element(type);
+        let el: Element = new Element(type, [ { key: 'class', value: `ld-${type}` } ]);
 
         /**
          * we apply inline operation recursively for the inlineText
          * in order to get sub combined emphasises 
          */
-        let InlineParser: Inline = new Inline(inlineText, '');
+        let InlineParser: Inline = new Inline(inlineText, null);
         let inlineParseRes: t_inlineParseResult = InlineParser.parse();
 
         el.appendChild(inlineParseRes.el);

@@ -106,9 +106,9 @@ export default abstract class Table {
 
     public static extract(curLineIdx: number, lineStartIdxs: number[], context: string,
     rowRange: number, columnCount: number, textAligns: t_textAlign[]): Element {
-        let table: Element = new Element('table');
-        let thead: Element = new Element('thead');
-        let headtr: Element = new Element('tr');
+        let table: Element = new Element('table', [ { key: 'class', value: 'ld-table' } ]);
+        let thead: Element = new Element('thead', [ { key: 'class', value: 'ld-thead' } ]);
+        let headtr: Element = new Element('tr', [ { key: 'class', value: 'ld-tr' } ]);
 
         /**
          * get the table headers
@@ -121,13 +121,13 @@ export default abstract class Table {
         for (let i: number = 0; i < columnCount; i++) {
             let context: string = headFields[i] || '';
             let textAlign: t_textAlign = textAligns[i];
-            let attributes: t_attribute[] = [];
+            let attributes: t_attribute[] = [ { key: 'class', value: 'ld-th' } ];
 
             if (textAlign.align != 'left') {
                 attributes.push({ key: 'align', value: textAlign.align });
             }
 
-            let contextParser: Inline = new Inline(context, '');
+            let contextParser: Inline = new Inline(context, null);
             let parsedContext: t_inlineParseResult = contextParser.parse();
 
             let th: Element = new Element('th', attributes);
@@ -143,7 +143,7 @@ export default abstract class Table {
          * split the row strings and extract the context to 
          * create element objects
          */
-        let tbody: Element = new Element('tbody');
+        let tbody: Element = new Element('tbody', [ { key: 'class', value: 'ld-tbody' } ]);
         let rowIdx: number = curLineIdx + 2;
 
         for (let i: number = 0; i < rowRange; i++) {
@@ -152,18 +152,18 @@ export default abstract class Table {
 
             let rowFields: string[] = rowstr.split('|');
 
-            let tr: Element = new Element('tr');
+            let tr: Element = new Element('tr', [ { key: 'class', value: 'ld-tr' } ]);
 
             for (let j: number = 0; j < columnCount; j++) {
                 let context: string = rowFields[j] || '';
                 let textAlign: t_textAlign = textAligns[j];
-                let attributes: t_attribute[] = [];
+                let attributes: t_attribute[] = [ { key: 'class', value: 'ld-td' } ];
 
                 if (textAlign.align != 'left') {
                     attributes.push({ key: 'align', value: textAlign.align });
                 }
 
-                let contextParser: Inline = new Inline(context, '');
+                let contextParser: Inline = new Inline(context, null);
                 let parsedContext: t_inlineParseResult = contextParser.parse();
 
                 let td: Element = new Element('td', attributes);

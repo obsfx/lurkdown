@@ -29,9 +29,17 @@ export default abstract class CodeBlock {
         let hlcode: string = lang ? hljs.highlight(lang.name || '', code).value :
             hljs.highlightAuto(code).value;
 
-        let div: Element = new Element('div', [], hlcode);
+        let pre: Element = new Element('pre', [ { key: 'class', value: 'ld-pre' } ]);
+        let codeel: Element = new Element('code', [], hlcode);
 
-        return div;
+        //let classVal: string = lang && lang.name ? `ld-code ${lang.name.toLowerCase()}`: 'ld-code';
+        if (lang && lang.name) {
+            codeel.attributes.push({ key: 'class', value: lang.name.toLowerCase() });
+        }
+
+        pre.appendChild(codeel);
+
+        return pre;
     }
 
     public static indentMatch(str: string, curLineIdx: number, lineStartIdxs: number[], baseindent: number): t_spottedSeq[] | false {
@@ -76,18 +84,8 @@ export default abstract class CodeBlock {
         .map(t => t.substring(baseindent + this.indenthresold))
         .join('\n');
 
-        //console.log('<br>');
-        //console.log('---------------------');
-        //console.log('<br>');
-        //Utils.getBetween(seqs[0], seqs[seqs.length - 1], context)
-        //.split('\n').map(t => t.substring(baseindent + this.indenthresold))
-        //.forEach(p => console.log(`<span>${p}</span><br>`))
-        //console.log('<br>');
-        //console.log('---------------------');
-        //console.log('<br>');
-
-        let pre: Element = new Element('pre');
-        let code: Element = new Element('code', [], str);
+        let pre: Element = new Element('pre', [ { key: 'class', value: 'ld-pre' } ]);
+        let code: Element = new Element('code', [ { key: 'class', value: 'ld-code' } ], str);
 
         pre.appendChild(code);
 

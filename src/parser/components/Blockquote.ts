@@ -21,11 +21,12 @@ export default abstract class Blockquote {
     }
 
     public static extract(seqs: t_spottedSeq[], context: string): t_inlineParseResult {
-        let blockquote: Element = new Element('blockquote');
+        let blockquote: Element = new Element('blockquote', [ { key: 'class', value: 'ld-blockquote' } ]);
 
         let inlineContext: string = context.substring(seqs[0].idx, seqs[seqs.length - 1].idx);
 
-        let InlineParser: Inline = new Inline(inlineContext, 'p');
+        let p: Element = new Element('p');
+        let InlineParser: Inline = new Inline(inlineContext, p);
         let inlineParseRes: t_inlineParseResult = InlineParser.parse();
 
         blockquote.appendChild(inlineParseRes.el);

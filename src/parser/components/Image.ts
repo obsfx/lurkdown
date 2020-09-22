@@ -40,7 +40,7 @@ export default abstract class Image {
             attributes += ` title='${title}'`
         }
 
-        let a: Element = new Element('', [], `<img ${attributes}>`);
+        let a: Element = new Element('', [], `<img class='ld-img' ${attributes}>`);
 
         return a;
     }

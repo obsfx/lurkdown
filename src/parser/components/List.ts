@@ -213,14 +213,14 @@ export default class List {
         let start: string | null = null;
         let type: 'ol' | 'ul' = seqs[0].type == 'ordered' ? 'ol' : 'ul';
 
-        let list: Element = new Element(type);
+        let list: Element = new Element(type, [ { key: 'class', value: `ld-${type}` } ]);
 
         for (let i: number = 0; i < seqs.length; i++) {
             let listPieces: t_extractListItemRes = this.extractListItem(seqs[i], context);
 
             if (type == 'ol' && !start) {
                 start = listPieces.head;
-                list.attributes = [ { key: 'start', value: start } ];
+                list.attributes.push({ key: 'start', value: start });
             }
 
             let listContextParser: Parser = new Parser(listPieces.context, seqs[i].fullindent, false);
@@ -233,11 +233,13 @@ export default class List {
 
             reflinks.push(...listContextParser.getReflinks());
 
-            let li: Element = new Element('li');
+            let li: Element = new Element('li', [ { key: 'class', value: 'ld-li' } ]);
 
             if (listPieces.checked) {
                 let checked: string = listPieces.checked == 'checked' ? `checked='true'` : '';
-                let checkbox: Element = new Element('', [], `<input disabled type='checkbox' ${checked}>`);
+
+                let checkbox: Element = new Element('', [], `<input class='ld-checkbox' onclick='return false' type='checkbox' ${checked}>`);
+
                 li.appendChild(checkbox);
             }
 

@@ -1,21 +1,31 @@
 import Element, { t_attribute } from '../Element'
 import Utils from '../Utils'
+import Inline from '../Inline'
 import {
     t_spottedSeq,
-    t_seqs
+    t_seqs,
+    t_inlineParseResult
 } from '../types'
 
 export default abstract class Link {
     public static match(start: number, str: string): t_spottedSeq[] | false {
+        /**
+         * pieces
+         * link  [  ]( ) -> link, image
+         * image ![ ]( )
+         * ref   [  ][ ] -> ref
+         *       [  ]
+         */
         let sequences: t_seqs = {
             '[': [ [ '[', '](', ')' ] ]
         }
 
-        let seqs: string[][] = sequences[str[start]];
-        let spottedSeqs: t_spottedSeq[] | false = Utils.resolveSeqs(seqs, start, str);
+        let passCon: string[] = [ '![', '[' ];
 
+        let seqs: string[][] = sequences[str[start]];
+        let spottedSeqs: t_spottedSeq[] | false = Utils.resolveSeqs(seqs, start, str, true, passCon);
         if (!spottedSeqs) return false;
-        
+
         let urlParts: string = Utils.getBetween(spottedSeqs[1], spottedSeqs[2], str);
         let urlPieces: string[] = urlParts.trim().split(' ');
         let url: string = urlPieces[0];
@@ -41,13 +51,18 @@ export default abstract class Link {
 
         let attributes: t_attribute[] = [];
 
+        attributes.push({ key: 'class', value: 'ld-a' })
         attributes.push({ key: 'href', value: url });
 
         if (title.length > 0) {
             attributes.push({ key: 'title', value: title });
         }
 
-        let a: Element = new Element('a', attributes, textPart);
+        let InlineParser: Inline = new Inline(textPart, null);
+        let parsedText: t_inlineParseResult = InlineParser.parse();
+
+        let a: Element = new Element('a', attributes);
+        a.appendChild(parsedText.el);
 
         return a;
     }
@@ -67,7 +82,7 @@ export default abstract class Link {
 
     public static URLExtract(seqs: t_spottedSeq[], context: string): Element {
         let url: string = Utils.getBetween(seqs[0], seqs[1], context);
-        let a: Element = new Element('a', [ { key: 'href', value: url } ], url);
+        let a: Element = new Element('a', [ { key: 'class', value: 'ld-a' }, { key: 'href', value: url } ], url);
         return a;
     }
 
