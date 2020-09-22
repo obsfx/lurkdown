@@ -22,14 +22,15 @@ export default abstract class CodeBlock {
         let str: string = Utils.getBetween(opening, closing, context);
         let strArr: string[] = str.split('\n');
         let lang: Language | undefined = hljs.getLanguage(strArr[0]);
+        console.log(lang);
         strArr.shift();
 
         let code: string = strArr.join('\n');
 
-        let hlcode: string = lang ? hljs.highlight(lang.name || '', code).value :
+        let hlcode: string = lang && lang.aliases ? hljs.highlight(lang.aliases[0], code).value :
             hljs.highlightAuto(code).value;
 
-        let pre: Element = new Element('pre', [ { key: 'class', value: 'ld-pre' } ]);
+        let pre: Element = new Element('pre', [ { key: 'class', value: 'ld-pre hljs' } ]);
         let codeel: Element = new Element('code', [], hlcode);
 
         //let classVal: string = lang && lang.name ? `ld-code ${lang.name.toLowerCase()}`: 'ld-code';

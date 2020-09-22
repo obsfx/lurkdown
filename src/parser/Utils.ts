@@ -4,6 +4,8 @@ import {
     t_extractFixesResult
 } from './types'
 
+import fs from 'fs'
+
 export default abstract class Utils {
     public static getLineStartIdxs(buffer: string): number[] {
         let arr: number[] = [ 0 ];
@@ -154,5 +156,35 @@ export default abstract class Utils {
         }
 
         return true;
+    }
+
+    public static b64(file: string): string {
+        if (file.substring(0, 7) == 'http://' || file.substring(0, 8) == 'https://') {
+            // this will be added but not now
+            //try {
+            //    let response: Response = await fetch(file);
+            //    let data: Buffer = await response.buffer();
+            //    let b64: string = data.toString('base64');
+
+            //    return `data:${response.headers.get('content-type')};base64,${b64}`;
+            //} catch (e) {
+            //    console.warn(`Image couldn't fetched -> ${file}`)
+            //    return file;
+            //}
+
+            return file;
+        } else {
+            let filestrarr: string[] = file.split('.');
+
+            let ext: string = filestrarr[filestrarr.length - 1].trim();
+            if (ext == 'jpe' || ext == 'jpg') ext = 'jpeg';
+            else if (ext == 'ico') ext = 'x-ico';
+
+            let mime: string = `image/${ext}`;
+            let data: Buffer = fs.readFileSync(file);
+            let b64: string = data.toString('base64');
+
+            return `data:${mime};base64,${b64}`;
+        }
     }
 }

@@ -34,7 +34,9 @@ export default abstract class Image {
         let title: string = urlPieces.slice(1).join(' ').trim();
         title = title.substring(1, title.length - 1);
 
-        let attributes: string = `src='${url}' alt='${textPart}'`;
+        let src: string = Utils.b64(url);
+
+        let attributes: string = `src='${src}' alt='${textPart}'`;
         
         if (title.length > 0) {
             attributes += ` title='${title}'`
