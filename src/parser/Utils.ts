@@ -174,6 +174,8 @@ export default abstract class Utils {
 
             return file;
         } else {
+            if (!fs.existsSync(file)) return file;
+
             let filestrarr: string[] = file.split('.');
 
             let ext: string = filestrarr[filestrarr.length - 1].trim();
