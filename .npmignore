@@ -1,6 +1,6 @@
-/.vim
 /node_modules
-/build
+/src
 /standalone-executables
+/media
 
-*.session
+.gitignore

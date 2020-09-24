@@ -4,17 +4,17 @@ const config: { [ key: string ]: any } = {
     style: '<!--@style-->',
     body: '<!--@body-->',
 
-    base: `${__dirname}/templates/base.html`,
+    base: `${__dirname}/../lib/base.html`,
 
     themes: {
         light: [
-            `${__dirname}/templates/themes/light/hljs-github.css`,
-            `${__dirname}/templates/themes/light/ld-light.css`
+            `${__dirname}/../lib/themes/light/hljs-github.css`,
+            `${__dirname}/../lib/themes/light/ld-light.css`
         ],
 
         dark: [
-            `${__dirname}/templates/themes/dark/hljs-monokai-sublime.css`,
-            `${__dirname}/templates/themes/dark/ld-dark.css`
+            `${__dirname}/../lib/themes/dark/hljs-monokai-sublime.css`,
+            `${__dirname}/../lib/themes/dark/ld-dark.css`
         ]
     }
 }

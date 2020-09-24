@@ -9,6 +9,22 @@ let warn = (txt: string) => console.log(`\u001b[33m${txt}\u001b[0m`);
 let error = (txt: string) => console.log(`\u001b[31m${txt}\u001b[0m`);
 
 const cli = (argv: minimist.ParsedArgs): void => {
+
+    if (argv.help) {
+        console.log('--theme // optional. available themes: darkand light. if you dont specify a theme, html file will be exported without any default styling.');
+        console.log('');
+        console.log(`--files // mandatory. specify file paths by enclosing with quotes and seperating with commas. e.g. --files='./path/to/file.md, ./path/to/file2.md, ./path/to/file3.md'`);
+        console.log('');
+        console.log(`--titles // optional. specify the titles that will be used in <title></title> tag in html files. they should be specified in the same order as files and as like files they should be enclosed with quotes and sepeated with commas. e.g --titles='file title, file2 title, file3 title'`);
+        console.log('');
+        console.log(`--outdir // optional. if you don't specify a output directory, files will be exported in same directory as like input files.`);
+        console.log('');
+        console.log(`--styles // optional. specify the custom css file paths if you want to customize the outputed html files. they are specified like files and titles. enclose with quotes and seperate with commas. e.g. --styles='./path/to/cssfile.css, ./path/to/cssfile2.css'`);
+        console.log('');
+        console.log(`--favico // optional. specify the path of favicon file.`);
+        
+        return;
+    }
     console.log('reading arguments...');
 
     let err: boolean = false;

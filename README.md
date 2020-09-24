@@ -18,14 +18,14 @@ npm i -g lurkdown
 
 ## disclaimer
 
-some features are not implemented:
+some core features are not implemented:
 
 1.  Combined blockquotes. *because it's sucks.*
 2.  Reference style images. *I don't need it*
 
 restrictions:
 
-1. lurkdown doesn't deal with font files. You have to host them somewhere and @import the css file of font definitions.
+1. lurkdown doesn't deal with font files. You have to host them at somewhere and @import the css file of font definitions.
 
 
 
@@ -34,8 +34,7 @@ restrictions:
 You can directly use with command line arguments.
 
 ```
---theme // optional. available themes: dark
-and light. if you dont specify a theme, html file will be exported without any default styling.
+--theme // optional. available themes: darkand light. if you dont specify a theme, html file will be exported without any default styling.
 
 --files // mandatory. specify file paths by enclosing with quotes and seperating with commas. 
 e.g. --files='./path/to/file.md, ./path/to/file2.md, ./path/to/file3.md'
@@ -46,7 +45,7 @@ e.g --titles='file title, file2 title, file3 title'
 --outdir // optional. if you don't specify a output directory, files will be exported in same directory as like input files.
 
 --styles // optional. specify the custom css file paths if you want to customize the outputed html files. they are specified like files and titles. enclose with quotes and seperate with commas.
-e.h. --styles='./path/to/cssfile.css, ./path/to/cssfile2.css'
+e.g. --styles='./path/to/cssfile.css, ./path/to/cssfile2.css'
 
 --favico // optional. specify the path of favicon file.
 
