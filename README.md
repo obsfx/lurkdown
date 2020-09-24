@@ -133,5 +133,5 @@ You can customize the elements by using this css class names.
 .ld-td { }
 ```
 
-lurkdown uses [highlight.js](https://github.com/highlightjs/highlight.js) to deal with syntax highlighting so if you want to customize the syntax highlighting, you can pass the [customized css files](https://highlightjs.org/static/demo/) with the `--style` parameter.
+lurkdown uses [highlight.js](https://github.com/highlightjs/highlight.js) to deal with syntax highlighting so if you want to customize the syntax highlighting, you can pass the [customized css files](https://highlightjs.org/static/demo/) with the `--styles` parameter.
 
