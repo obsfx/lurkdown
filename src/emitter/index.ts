@@ -14,11 +14,11 @@ const emitter = (
     styles: string[],
     favico: string
 ) => {
-    console.log(theme, titles, outdir);
+    console.log('generating html files...');
     let basehtml: string = fs.readFileSync(config.base, 'utf8');
     let favicon64: string = Utils.b64(favico);
 
-    basehtml = basehtml.replace(config.favico, `<link rel="icon" href="${favicon64}" >`);
+    basehtml = basehtml.replace(config.favico, `<link rel="icon" type="${favicon64.split(';')[0].split(':')[1]}" href="${favicon64}" >`);
 
     let css: string = '';
 
@@ -28,13 +28,18 @@ const emitter = (
         });
     }
 
-    styles.forEach((style: string) => {
-        css += fs.readFileSync(style, 'utf8');
-    });
+    if (styles.length > 0) {
+        console.log('reading external style files...');
+        styles.forEach((style: string) => {
+            console.log(`reading '${style}' style file...`);
+            css += fs.readFileSync(style, 'utf8');
+        });
+    }
 
     basehtml = basehtml.replace(config.style, `<style>${css}</style>`);
 
     files.forEach((p: string, i: number) => {
+        console.log(`reading '${p}' file...`);
         let markdown: string = fs.readFileSync(p, 'utf8');
 
         let parsedpath: path.ParsedPath = path.parse(p);
@@ -42,6 +47,7 @@ const emitter = (
             path.join(parsedpath.dir, `${parsedpath.name}.html`) :
             path.join(outdir, `${parsedpath.name}.html`);
 
+        console.log(`parsing '${p}' file...`);
         let parser: Parser = new Parser(markdown);
         let body: Element = parser.parse();
         let html: string = body.emitHtml();
@@ -52,6 +58,7 @@ const emitter = (
 
         output = output.replace(config.title, title);
 
+        console.log(`done. exported to ${targetdir}`);
         fs.writeFileSync(targetdir, output);
     });
 }

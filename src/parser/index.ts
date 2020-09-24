@@ -108,7 +108,6 @@ export default class Parser {
             }
 
             case '|': {
-                debugger;
                 let [ 
                     matchRes, 
                     rowRange, 
@@ -116,7 +115,6 @@ export default class Parser {
                     textAligns 
                 ] = Table.match(this.curLineIdx, this.lineStartIdxs, this.input);
                 if (!matchRes) return false;
-                console.log('TEST');
 
                 let table: Element = Table.extract(this.curLineIdx, 
                 this.lineStartIdxs, this.input, rowRange, columnCount, textAligns || []);
@@ -497,20 +495,6 @@ export default class Parser {
                 this.textBuffer += this.input[this.idx];
                 this.idx++;
             }
-
-            //debugger;
-            //let lineCheckIdx: number = opRes ? this.idx : this.idx - 1;
-            //console.log(JSON.stringify(this.textBuffer), JSON.stringify(this.input[lineCheckIdx]))
-
-            //if (Utils.isBlankLine(lineCheckIdx, this.input)) {
-            //    this.pushTextBuffer();
-            //    this.curLineIdx += 1;
-            //    this.idx = this.lineStartIdxs[this.curLineIdx];
-
-            //    if (!containerTag) this.conBuffer.tag = '';
-            //    this.body.appendChild(this.conBuffer);
-            //    this.conBuffer = Utils.getSection();
-            //}
         }
 
         this.pushTextBuffer(null);

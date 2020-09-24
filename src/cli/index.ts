@@ -9,9 +9,83 @@ let warn = (txt: string) => console.log(`\u001b[33m${txt}\u001b[0m`);
 let error = (txt: string) => console.log(`\u001b[31m${txt}\u001b[0m`);
 
 const cli = (argv: minimist.ParsedArgs): void => {
-    console.log(argv);
-    if (typeof argv.config == 'string') {
+    console.log('reading arguments...');
 
+    let err: boolean = false;
+    if (typeof argv.config == 'string') {
+        if (!fs.existsSync(argv.config)) {
+            error(`'${argv.config}' config file couldn\'t found. please check the file path`);
+            return;
+        }
+
+        let configdata: string = fs.readFileSync(argv.config, 'utf8');
+        let configjson = JSON.parse(configdata);
+
+        if (!Array.isArray(configjson.files)) {
+            error('please specify files as a path title object array. -> [ { path: "/path/top/file", title: "title" } ]');
+            return;
+        }
+
+        for (let i: number = 0; i < configjson.files.length; i++) {
+            if (!fs.existsSync(configjson.files[i].path)) {
+                error(`'${configjson.files[i].path}' input file couldn't found. please be sure about whether input file paths are correct.`);
+                err = true;
+            }
+        }
+
+        if (err) return;
+
+        // styles
+        let styles: string[] = [];
+        if (configjson.styles && !Array.isArray(configjson.styles)) {
+            error('please specify style files as a string array. -> [ "/path/to/css", "/path/to/css2" ]');
+            return;
+        }
+
+        if (Array.isArray(configjson.styles)) {
+            for (let i: number = 0; i < configjson.styles.length; i++) {
+                if (!fs.existsSync(configjson.styles[i])) {
+                    error(`'${configjson.styles[i]}' style file couldn\'t found. please check the file paths.`);
+                    err = true;
+                }
+            }
+
+            if (err) return;
+
+            styles = configjson.styles;
+        }
+
+        //files
+        let files: string[] = [];
+        // titles
+        let titles: string[] = [];
+        configjson.files.forEach((file: any) => {
+            files.push(file.path || '');
+            titles.push(file.title || '');
+        });
+
+        // theme
+        let theme: string = '';
+        if (typeof configjson.theme == 'string') {
+            if (config.themes[configjson.theme]) theme = configjson.theme;
+            else warn(`'${configjson.theme}' theme couldn\'t found.`);
+        }
+
+        // outdir
+        let outdir: string = '';
+        if (typeof configjson.outdir == 'string') {
+            outdir = configjson.outdir;
+            if (!fs.existsSync(outdir)) fs.mkdirSync(outdir, { recursive: true });
+        }
+
+        // favico
+        let favico: string = '';
+        if (typeof configjson.favico == 'string') {
+            if (fs.existsSync(configjson.favico)) favico = configjson.favico;
+            else warn(`'${configjson.favico}' file couldn\'t found`);
+        }
+
+        emitter(theme, files, titles, outdir, styles, favico);
     } else {
         if (typeof argv.files != 'string') {
             error('please specify input file');
@@ -21,10 +95,9 @@ const cli = (argv: minimist.ParsedArgs): void => {
         // files
         let files: string[] = argv.files.split(',').map((path: string) => path.trim());
 
-        let err: boolean = false;
         for (let i: number = 0; i < files.length; i++) {
             if (!fs.existsSync(files[i])) {
-                error(`${files[i]} input file couldn't found. please be sure about whether input file paths are correct.`)
+                error(`'${files[i]}' input file couldn't found. please be sure about whether input file paths are correct.`);
                 err = true;
             }
         }
@@ -44,13 +117,6 @@ const cli = (argv: minimist.ParsedArgs): void => {
             titles = argv.titles.split(',').map((title: string) => title.trim());
         }
 
-        // outdir
-        let outdir: string = '';
-        if (typeof argv.outdir == 'string') {
-            outdir = argv.outdir;
-            if (!fs.existsSync(outdir)) fs.mkdirSync(outdir, { recursive: true });
-        }
-
         // styles
         let styles: string[] = [];
         if (typeof argv.styles == 'string') {
@@ -59,16 +125,25 @@ const cli = (argv: minimist.ParsedArgs): void => {
             for (let i: number = 0; i < styles.length; i++) {
                 if (!fs.existsSync(styles[i])) {
                     error(`'${styles[i]}' style file couldn\'t found. please check the file paths.`);
-                    return;
+                    err = true;
                 }
             }
+        }
+
+        if (err) return;
+
+        // outdir
+        let outdir: string = '';
+        if (typeof argv.outdir == 'string') {
+            outdir = argv.outdir;
+            if (!fs.existsSync(outdir)) fs.mkdirSync(outdir, { recursive: true });
         }
 
         // favico
         let favico: string = '';
         if (typeof argv.favico == 'string') {
             if (fs.existsSync(argv.favico)) favico = argv.favico;
-            else warn(`${argv.favico} file couldn\'t found`);
+            else warn(`'${argv.favico}' file couldn\'t found`);
         }
 
         emitter(theme, files, titles, outdir, styles, favico);

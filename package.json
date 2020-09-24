@@ -9,20 +9,27 @@
   },
   "scripts": {
     "run": "ts-node ./src/index.ts",
-    "test-html": "ts-node ./src/index.ts > ./index.html",
     "inspect": "node --inspect -r ts-node/register ./src/index.ts",
     "build": "tsc -b",
     "watch": "tsc -b --watch"
   },
   "keywords": [
     "markdown",
-    "commandline",
+    "cli",
+    "command",
+    "line",
     "tool",
     "transpiler",
+    "compiler",
+    "parser",
     "html"
   ],
   "author": "obsfx",
-  "license": "WTFPL",
+  "license": "GNU General Public License v3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/obsfx/lurkdown.git"
+  },
   "devDependencies": {
     "@types/node": "^14.0.27",
     "@types/uuid": "^8.3.0",

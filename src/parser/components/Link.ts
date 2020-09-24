@@ -91,7 +91,6 @@ export default abstract class Link {
         let spottedSeqs: t_spottedSeq[] | false = Utils.resolveSeqs(sequence, start, str);
         if (!spottedSeqs) return false;
         let inside: string = Utils.getBetween(spottedSeqs[0], spottedSeqs[1], str);
-        console.log(inside, inside.substring(0, 7) != 'http://', inside.substring(0, 7))
 
         if (inside.substring(0, 7) != 'http://' &&
             inside.substring(0, 8) != 'https://') return false;

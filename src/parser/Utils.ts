@@ -29,10 +29,6 @@ export default abstract class Utils {
     }
 
     public static isBlankLine(start: number, str: string): boolean {
-        //console.log('---->', JSON.stringify(str.substring(start, start + 2)));
-
-        //debugger;
-
         if (str.substring(start, start + 2) == '\n\n') {
             return true;
         }
@@ -71,8 +67,6 @@ export default abstract class Utils {
     public static checkSeq(seq: string[], start: number, 
         context: string, nlTerminator: boolean = true, passCon: string[] = []): t_spottedSeq[] | false {
         if (seq.length == 0) return false;
-
-        debugger;
 
         let idx: number = start;
         let seqIdx: number = 0;
@@ -180,7 +174,7 @@ export default abstract class Utils {
 
             let ext: string = filestrarr[filestrarr.length - 1].trim();
             if (ext == 'jpe' || ext == 'jpg') ext = 'jpeg';
-            else if (ext == 'ico') ext = 'x-ico';
+            else if (ext == 'ico') ext = 'x-icon';
 
             let mime: string = `image/${ext}`;
             let data: Buffer = fs.readFileSync(file);

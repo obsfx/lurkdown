@@ -187,8 +187,6 @@ export default class Inline {
             }
 
             case '!': {
-                console.log('KEK');
-                debugger;
                 let matchRes: t_spottedSeq[] | false = Image.match(this.idx, this.input);
                 if (!matchRes) return false;
 

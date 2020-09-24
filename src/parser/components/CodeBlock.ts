@@ -22,7 +22,6 @@ export default abstract class CodeBlock {
         let str: string = Utils.getBetween(opening, closing, context);
         let strArr: string[] = str.split('\n');
         let lang: Language | undefined = hljs.getLanguage(strArr[0]);
-        console.log(lang);
         strArr.shift();
 
         let code: string = strArr.join('\n');
