@@ -1,9 +1,0 @@
-/.vim
-/node_modules
-/src
-/standalone-executables
-
-*.gif
-*.session
-
-.gitignore

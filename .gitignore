@@ -1,6 +1,0 @@
-/.vim
-/node_modules
-/build
-/standalone-executables
-
-*.session
