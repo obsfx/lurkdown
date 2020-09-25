@@ -1,6 +1,6 @@
 # lurkdown [![npm version](https://badge.fury.io/js/lurkdown.svg)](https://badge.fury.io/js/lurkdown)
 
-lurkdown is a markdown transpiler to create standalone html files that was built on nodejs with typescript. lurkdown converts all locally hosted image files to base64 to avoid dealing with images when we want to host that html files somewhere. I mainly developed this to convert my markdown formatted notes to html and then use them like static blog posts. lurkdown is a command line tool. I will make a *library* version that will be usable in web and nodejs projects later.
+lurkdown is a markdown transpiler that was built on nodejs with typescript to create standalone html files. lurkdown converts all locally hosted image files to base64 to avoid dealing with images when we want to host that html files somewhere. I mainly developed this to convert my markdown formatted notes to html and then use them like static blog posts. lurkdown is a command line tool. I will make a *library* version that will be usable in web and nodejs projects later.
 
 ![](https://raw.githubusercontent.com/obsfx/lurkdown/master/demo.gif)
 
