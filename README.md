@@ -22,7 +22,7 @@ Or you can download the standalone executable version.
 
 some core features are not implemented:
 
-1.  Combined blockquotes. *because it's sucks.*
+1.  Combined blockquotes. *because it sucks.*
 2.  Reference style images. *I don't need it*
 
 restrictions:
