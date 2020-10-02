@@ -1,7 +1,7 @@
 {
   "name": "lurkdown",
-  "version": "0.0.6",
-  "description": "A simple transpiler that takes markdown files and then transpiles to styled html files.",
+  "version": "0.0.7",
+  "description": "A simple transpiler that takes markdown files and then transpiles to styled standalone HTML files.",
   "main": "./bin/index.js",
   "bin": {
     "lurkdown": "./bin/index.js",
@@ -27,6 +27,7 @@
   ],
   "author": "obsfx",
   "license": "GNU General Public License v3.0",
+  "homepage": "https://obsfx.github.io/lurkdown",
   "repository": {
     "type": "git",
     "url": "https://github.com/obsfx/lurkdown.git"

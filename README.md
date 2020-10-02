@@ -27,7 +27,7 @@ some core features are not implemented:
 
 restrictions:
 
-1. lurkdown doesn't deal with font files. You have to host them at somewhere and @import the css file of font definitions.
+1. lurkdown doesn't deal with font files. You have to host them somewhere and @import the css file of font definitions.
 
 
 
