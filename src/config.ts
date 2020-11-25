@@ -8,13 +8,13 @@ const config: { [ key: string ]: any } = {
 
     themes: {
         light: [
-            `${__dirname}/../lib/themes/light/hljs-github.css`,
-            `${__dirname}/../lib/themes/light/ld-light.css`
+            `${__dirname}/../lib/themes/light/ld-light.css`,
+            `${__dirname}/../lib/themes/light/hljs-github.css`
         ],
 
         dark: [
-            `${__dirname}/../lib/themes/dark/hljs-monokai-sublime.css`,
-            `${__dirname}/../lib/themes/dark/ld-dark.css`
+            `${__dirname}/../lib/themes/dark/ld-dark.css`,
+            `${__dirname}/../lib/themes/dark/hljs-monokai-sublime.css`
         ]
     }
 }
