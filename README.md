@@ -50,13 +50,21 @@ restrictions:
 You can directly use with command-line parameters.
 
 - `--files` / **_mandatory_** -> Specify file paths by enclosing with quotes and then separating with commas.
+
   `e.g. --files='./path/to/file.md, ./path/to/file2.md, ./path/to/file3.md'`
+
 - `--theme` / __*optional*__ -> Available themes: dark, light. If you don't specify a theme, output files will be exported without any styling.
+
 - `--titles` / __*optional*__ -> Specify the titles that will be used in `title` tag in output files. They should be specified in the same order as files and they should be enclosed with quotes and then separated with commas.
+
   `e.g --titles='file title, file2 title, file3 title'`
+
 - `--outdir` / __*optional*__ -> If you don't specify an output directory, files will be exported in same directory as like input files.
+
 - `--styles` / __*optional*__ -> Specify the custom `CSS` file paths If you want to customize the output files. They should be specified like files and titles. Enclose with quotes and then separate with commas.
+
   `e.g. --styles='./path/to/cssfile.css, ./path/to/cssfile2.css'`
+
 - `--favico` / __*optional*__ -> Specify the path of favico file.
 
 
