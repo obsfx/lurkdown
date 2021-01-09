@@ -1,4 +1,4 @@
-import Parser from '../';
+import { Block } from '../';
 import Element from '../Element'
 import Utils from '../Utils'
 import {
@@ -223,7 +223,7 @@ export default class List {
                 list.attributes.push({ key: 'start', value: start });
             }
 
-            let listContextParser: Parser = new Parser(listPieces.context, seqs[i].fullindent, false);
+            let listContextParser: Block = new Block(listPieces.context, seqs[i].fullindent, false);
             let listContext: Element = listContextParser.parse(false);
 
             let listRefMap: Map<string, t_refUrlTitlePair> = listContextParser.getRefMap();

@@ -1,8 +1,16 @@
-# lurkdown [![npm version](https://badge.fury.io/js/lurkdown.svg)](https://badge.fury.io/js/lurkdown)
+# lurkdown 
 
-lurkdown is a markdown transpiler that was built on nodejs with typescript to create standalone html files. lurkdown converts all locally hosted image files to base64 to avoid dealing with images when we want to host that html files somewhere. I mainly developed this to convert my markdown formatted notes to html and then use them like static blog posts. lurkdown is a command line tool. I will make a *library* version that will be usable in web and nodejs projects later.
+[![npm version](https://badge.fury.io/js/lurkdown.svg)](https://badge.fury.io/js/lurkdown)
 
-![](https://raw.githubusercontent.com/obsfx/lurkdown/master/demo.gif)
+[View the source code on GitHub](https://github.com/obsfx/lurkdown) 
+
+
+
+![lurkdown](https://raw.githubusercontent.com/obsfx/lurkdown/gh-pages/demo.gif)
+
+
+
+`lurkdown` is a command-line markdown transpiler tool that was built on `NodeJS` with `TypeScript` to create standalone, markdown-generated HTML files. `lurkdown` converts all locally hosted image files to `base64` to avoid dealing with images when we want to host that HTML files at somewhere. *It is not perfect but works in most cases.*
 
 
 
@@ -10,62 +18,69 @@ lurkdown is a markdown transpiler that was built on nodejs with typescript to cr
 
 You can directly install via npm
 
+
+
 ```
 npm i -g lurkdown
 ```
+
+
 
 Or you can download the standalone executable version.
 
 [Standalone Executables](https://github.com/obsfx/lurkdown/releases)
 
+
+
 ## disclaimer
 
 some core features are not implemented:
 
-1.  Combined blockquotes. *because it sucks.*
-2.  Reference style images. *I don't need it*
+1.  Combined blockquotes.
+2.  Reference style images.
 
 restrictions:
 
-1. lurkdown doesn't deal with font files. You have to host them somewhere and @import the css file of font definitions.
+1. `lurkdown` doesn't deal with font files. You have to host them at somewhere and `@import` the `CSS` file of font definitions.
 
 
 
 ## how to use
 
-You can directly use with command line arguments.
+You can directly use with command-line parameters.
+
+- `--files` / **_mandatory_** -> Specify file paths by enclosing with quotes and then separating with commas.
+  `e.g. --files='./path/to/file.md, ./path/to/file2.md, ./path/to/file3.md'`
+
+- `--theme` / __*optional*__ -> Available themes: dark, light. If you don't specify a theme, output files will be exported without any styling.
+
+- `--titles` / __*optional*__ -> Specify the titles that will be used in `title` tag in output files. They should be specified in the same order as files and they should be enclosed with quotes and then separated with commas.
+  `e.g --titles='file title, file2 title, file3 title'`
+
+- `--outdir` / __*optional*__ -> If you don't specify an output directory, files will be exported in same directory as like input files.
+
+- `--styles` / __*optional*__ -> Specify the custom `CSS` file paths If you want to customize the output files. They should be specified like files and titles. Enclose with quotes and then separate with commas.
+  `e.g. --styles='./path/to/cssfile.css, ./path/to/cssfile2.css'`
+
+- `--favico` / __*optional*__ -> Specify the path of favico file.
+
+
+
+Example usage
+
+
 
 ```
---theme // optional. available themes: darkand light. if you dont specify a theme, html file will be exported without any default styling.
-
---files // mandatory. specify file paths by enclosing with quotes and seperating with commas. 
-e.g. --files='./path/to/file.md, ./path/to/file2.md, ./path/to/file3.md'
-
---titles // optional. specify the titles that will be used in <title></title> tag in html files. they should be specified in the same order as files and as like files they should be enclosed with quotes and sepeated with commas.
-e.g --titles='file title, file2 title, file3 title'
-
---outdir // optional. if you don't specify a output directory, files will be exported in same directory as like input files.
-
---styles // optional. specify the custom css file paths if you want to customize the outputed html files. they are specified like files and titles. enclose with quotes and seperate with commas.
-e.g. --styles='./path/to/cssfile.css, ./path/to/cssfile2.css'
-
---favico // optional. specify the path of favicon file.
-
-npx ts-node ./src/index.ts --theme=dark --files='./src/test/http_notes.md, ./src/test/test.md' --titles='deneme deneme, deneme2 deneme2' --outdir=./src/export/test  --favico=./src/icon.ico
-```
-
-example
-
-```
-lurkdown --theme=light --files='./src/test/http_notes.md' --titles='http notes' --outdir=./src/export --styles=./src/templates/themes/light/customizations.css --favico=./src/icon.ico
-
+lurkdown --theme=dark --files='./src/test/http_notes.md, ./src/test/post.md' --titles='HTTP Notes, My First Blog Post' --outdir=./export --favico=./src/icon.ico
 ```
 
 
 
-Or you can just pass a sing config.json file with the `--config`.
+Or you can just pass a single `config.json` file with the `--config` parameter.
 
 Example usage:
+
+
 
 ```json
 {
@@ -92,7 +107,9 @@ lurkdown --config=./config.json
 
 ## customization
 
-You can customize the elements by using this css class names.
+You can customize the elements by using this `CSS` class names.
+
+
 
 ```css
 .ld-wrapper { }
@@ -133,5 +150,6 @@ You can customize the elements by using this css class names.
 .ld-td { }
 ```
 
-lurkdown uses [highlight.js](https://github.com/highlightjs/highlight.js) to deal with syntax highlighting so if you want to customize the syntax highlighting, you can pass the [customized css files](https://highlightjs.org/static/demo/) with the `--styles` parameter.
+---
 
+`lurkdown` uses [highlight.js](https://github.com/highlightjs/highlight.js) to deal with syntax highlighting so if you want to customize the syntax highlighting, you can pass the [customized css files](https://highlightjs.org/static/demo/) with the `--styles` parameter.
