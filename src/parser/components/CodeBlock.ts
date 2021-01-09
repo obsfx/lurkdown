@@ -18,16 +18,22 @@ export default abstract class CodeBlock {
         return spottedSeqs;
     }
 
-    public static extract(opening: t_spottedSeq, closing: t_spottedSeq, context: string): Element {
+    public static extract(opening: t_spottedSeq, closing: t_spottedSeq, context: string, baseindent: number): Element {
         let str: string = Utils.getBetween(opening, closing, context);
-        let strArr: string[] = str.split('\n');
+
+        let strArr: string[] = str
+        .split('\n')
+        .map((line: string) => line.substring(baseindent, line.length));
+
         let lang: Language | undefined = hljs.getLanguage(strArr[0]);
+
         strArr.shift();
 
         let code: string = strArr.join('\n');
 
-        let hlcode: string = lang && lang.aliases ? hljs.highlight(lang.aliases[0], code).value :
-            hljs.highlightAuto(code).value;
+        let hlcode: string = lang && lang.aliases ? 
+          hljs.highlight(lang.aliases[0], code).value :
+          hljs.highlightAuto(code).value;
 
         let pre: Element = new Element('pre', [ { key: 'class', value: 'ld-pre hljs' } ]);
         let codeel: Element = new Element('code', [], hlcode);

@@ -359,7 +359,7 @@ export default class Parser {
                     let matchRes: t_spottedSeq[] | false = CodeBlock.match(this.idx, this.input);
                     if (!matchRes) return false;
 
-                    let extractRes: Element = CodeBlock.extract(matchRes[0], matchRes[1], this.input);
+                    let extractRes: Element = CodeBlock.extract(matchRes[0], matchRes[1], this.input, this.baseindent);
 
                     let sectionStr: string = Utils.getBetween(matchRes[0], matchRes[1], this.input);
 
