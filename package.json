@@ -1,6 +1,6 @@
 {
   "name": "lurkdown",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A simple transpiler that takes markdown files and then transpiles to styled standalone HTML files.",
   "main": "./bin/index.js",
   "bin": {
